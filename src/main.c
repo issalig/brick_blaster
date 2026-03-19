@@ -231,6 +231,7 @@ u8 level_cleared = 0;   // Global flag to trigger level transition
 // --- Input and Edge Detection ---
 u8 key_m_held;    // Edge detection for M key
 u8 key_esc_held;  // Edge detection for ESC key (Toggle pause)
+u8 key_3_held;    // Edge detection for difficulty toggle
 
 // --- Power-up States ---
 u8 glue_active;   // 1 = next paddle hit sticks the ball
@@ -258,6 +259,10 @@ u8 door_open;     // 1 = exit door is open
 #define DOOR_ANIM_SPEED 4
 u8 door_anim_frame;
 u8 door_anim_timer;
+u8 demo_mode;         // 1 = automated demo mode
+u8 demo_fire_timer;   // for auto-firing lasers
+u8 demo_launch_timer; // for auto-launching ball
+u8 game_difficulty = 1; // 0=Easy, 1=Normal, 2=Hard
 u8 launch_timer;  // Counts down from 250 (5s at 50Hz); ball auto-launches at 0
 u8 game_won;      // 1 = player defeated the boss
 
@@ -1328,7 +1333,12 @@ void resetPowerups() {
 }
 
 u16 getNormalBallSpeed() {
-    u16 speed = INITIAL_BALL_SPEED + (current_level / 2) * 15;
+    u16 speed;
+    u8 inc = 15;
+    if (game_difficulty == 0) inc = 8;
+    else if (game_difficulty == 2) inc = 20;
+
+    speed = INITIAL_BALL_SPEED + (current_level / 2) * inc;
     if (speed > INITIAL_BALL_SPEED + 150) speed = INITIAL_BALL_SPEED + 150;
     return speed;
 }
@@ -1413,6 +1423,11 @@ void drawHUD() {
     // Draw score (top-center of screen, inside the wall area)
     // 6 chars * 3 bytes = 18 bytes. Center = (80-18)/2 = 31
     drawCustomTextLarge((const u8*)score_str, 31, 0, PLT_BRIGHT_WHITE);
+
+    // Draw DEMO indicator in yellow on the left
+    if (demo_mode) {
+        drawCustomText((const u8*)"DEMO", 8, 0, PLT_BRIGHT_YELLOW);
+    }
 
     // Draw player indicator in 2-Player mode
     if (num_players == 2) {
@@ -1561,18 +1576,21 @@ void updatePaddle() {
         }
     }
 
-    if (autopilot_active) {
+    if (autopilot_active || demo_mode) {
         u8 target_x;
-        // Center the paddle under the ball
-        // ball.width = 2, so center is ball.x + 1
-        // target_x = (ball.x + 1) - (paddle.width / 2)
-        target_x = ball.x + 1;
-        if (target_x >= (paddle.width >> 1)) {
-            target_x -= (paddle.width >> 1);
+        if (door_open) {
+            target_x = WALL_RIGHT_BYTES + 8; // Head towards door
         } else {
-            target_x = 0;
+            // Center the paddle under the ball
+            // target_x = (ball.x + 1) - (paddle.width / 2)
+            target_x = ball.x + 1;
+            if (target_x >= (paddle.width >> 1)) {
+                target_x -= (paddle.width >> 1);
+            } else {
+                target_x = 0;
+            }
         }
-
+ 
         if (paddle.x < target_x) {
             paddle.x += speed;
             if (paddle.x > target_x) paddle.x = target_x;
@@ -1581,13 +1599,19 @@ void updatePaddle() {
             else paddle.x = 0;
             if (paddle.x < target_x) paddle.x = target_x;
         }
-
+ 
         // Clamp to walls
         if (paddle.x < WALL_LEFT_BYTES) paddle.x = WALL_LEFT_BYTES;
         if (!door_open && paddle.x + paddle.width > WALL_RIGHT_BYTES) paddle.x = WALL_RIGHT_BYTES - paddle.width;
-
-        // Decrement timer
-        if (autopilot_timer > 0) {
+        
+        // Automated exit check
+        if (door_open && paddle.x >= WALL_RIGHT_BYTES) {
+            nextLevel();
+            return;
+        }
+ 
+        // Decrement timer only for autopilot power-up
+        if (autopilot_active && autopilot_timer > 0) {
             autopilot_timer--;
             if (autopilot_timer == 0) autopilot_active = 0;
         }
@@ -1643,7 +1667,7 @@ void moveBall(ball_t *b) {
 
     b->fx += b->dx;
     b->fy += b->dy;
-    if (gravity_active) {
+    if (gravity_active && !demo_mode) {
         b->fy += 120; // Much stronger gravity (approx 2 pixels per frame pull)
     }
 
@@ -2016,7 +2040,7 @@ void updateBallOnPaddle() {
     if (glue_active) {
         // Glue mode: wait for glue_timer (set on paddle bounce), then auto-release
         if (glue_timer > 0) glue_timer--;
-        if (glue_timer == 0 || cpct_isKeyPressed(g_key_fire) || (g_use_joystick && cpct_isKeyPressed(Joy0_Fire1))) {
+        if (glue_timer == 0 || cpct_isKeyPressed(g_key_fire) || (g_use_joystick && cpct_isKeyPressed(Joy0_Fire1)) || (demo_mode && glue_timer < 100)) {
             glue_timer = 0;
             launch_timer = 250; // Reset for next ball
             ball.active = 1;
@@ -2025,8 +2049,9 @@ void updateBallOnPaddle() {
             updateBallVelocity();
         }
     } else {
-        // Normal mode: Fire OR auto-launch countdown reaching 0
-        if (cpct_isKeyPressed(g_key_fire) || (g_use_joystick && cpct_isKeyPressed(Joy0_Fire1)) || launch_timer == 0) {
+        // Normal mode: Fire OR auto-launch countdown reaching 0 OR demo auto-launch
+        if (cpct_isKeyPressed(g_key_fire) || (g_use_joystick && cpct_isKeyPressed(Joy0_Fire1)) || 
+            launch_timer == 0 || (demo_mode && launch_timer < 150)) {
             launch_timer = 250; // Reset for next ball
             ball.active = 1;
             ball.dir_x = initial_dir_x;
@@ -2823,7 +2848,8 @@ void updateEnemies() {
             e->dx = -e->dx;
         }
 
-        if (enemies[i].y >= SCREEN_HEIGHT) {
+        // Deactivate if reached bottom (or about to hit HUD area if wrap occurs)
+        if (enemies[i].y > 192) {
             enemies[i].active = 0;
             continue;
         }
@@ -2860,8 +2886,8 @@ void drawEnemies() {
             }
         }
 
-        // 2. Draw current state
-        if (e->type < NUM_ENEMY_SPRITES) {
+        // 2. Draw current state with safety clipping
+        if (e->type < NUM_ENEMY_SPRITES && e->y + ENEMY_HEIGHT <= SCREEN_HEIGHT) {
             pVideoMemory = cpct_getScreenPtr((void*)0xC000, e->x, e->y);
             cpct_drawSprite(enemy_sprites[e->type], pVideoMemory, ENEMY_WIDTH, ENEMY_HEIGHT);
         }
@@ -2924,26 +2950,47 @@ u8 showStory() {
     }
 }
 
+void drawDifficultyLine() {
+    u8 diff_str[2];
+    // Clear only the line area (approx 160 pixels wide, 8 pixels high)
+    // drawBackgroundRect(26, 125, 54, 8); // Wall areas start at byte 2, playfield at WALL_LEFT_BYTES
+    // Actually, just overwriting is usually fine if colors are same.
+    drawCustomText(GET_STR(STR_DIFFICULTY), 26, 116, PLT_BRIGHT_WHITE);
+    diff_str[0] = '1' + game_difficulty;
+    diff_str[1] = '\0';
+    drawCustomText(diff_str, 26 + 30, 116, PLT_BRIGHT_YELLOW);
+}
+
 void drawIntroContent() {
     // Draw 2x scaled title with multiple colors
-    drawCustomTextXLarge((const u8*)"BR", 3, 40, PLT_CYAN);
-    drawCustomTextXLarge((const u8*)"IC", 15, 40, PLT_GREEN);
-    drawCustomTextXLarge((const u8*)"K", 27, 40, PLT_BRIGHT_GREEN);
+    drawCustomTextXLarge((const u8*)"BR", 3, 33, PLT_CYAN);
+    drawCustomTextXLarge((const u8*)"IC", 15, 33, PLT_GREEN);
+    drawCustomTextXLarge((const u8*)"K", 27, 33, PLT_BRIGHT_GREEN);
     // (Space at 33)
-    drawCustomTextXLarge((const u8*)"B", 39, 40, PLT_ORANGE);
-    drawCustomTextXLarge((const u8*)"LA", 45, 40, PLT_BRIGHT_RED);
-    drawCustomTextXLarge((const u8*)"ST", 57, 40, PLT_BRIGHT_MAGENTA);
-    drawCustomTextXLarge((const u8*)"ER", 69, 40, PLT_MAUVE);
+    drawCustomTextXLarge((const u8*)"B", 39, 33, PLT_ORANGE);
+    drawCustomTextXLarge((const u8*)"LA", 45, 33, PLT_BRIGHT_RED);
+    drawCustomTextXLarge((const u8*)"ST", 57, 33, PLT_BRIGHT_MAGENTA);
+    drawCustomTextXLarge((const u8*)"ER", 69, 33, PLT_MAUVE);
 
     // Draw player selection options (aligned to column)
+    drawCustomText(GET_STR(STR_DEMO),       26, 77, PLT_BRIGHT_WHITE);
     drawCustomText(GET_STR(STR_1_PLAYER),   26, 90, PLT_BRIGHT_WHITE);
-    drawCustomText(GET_STR(STR_2_PLAYERS),  26, 105, PLT_BRIGHT_WHITE);
-    drawCustomText(GET_STR(STR_PRESS_H_HELP), 26, 120, PLT_BRIGHT_WHITE);
+    drawCustomText(GET_STR(STR_2_PLAYERS),  26, 103, PLT_BRIGHT_WHITE);
+    
+    drawCustomText(GET_STR(STR_DIFFICULTY), 26, 116, PLT_BRIGHT_WHITE);
+    {
+        u8 diff_str[2];
+        diff_str[0] = '1' + game_difficulty;
+        diff_str[1] = '\0';
+        drawCustomText(diff_str, 26 + 30, 116, PLT_BRIGHT_YELLOW);
+    }
+
+    drawCustomText(GET_STR(STR_PRESS_H_HELP), 26, 129, PLT_BRIGHT_WHITE);
 
     // Draw credits
-    drawCustomTextCentered(GET_STR(STR_CREDITS_CODE), 155, PLT_BRIGHT_YELLOW);
-    drawCustomTextCentered(GET_STR(STR_CREDITS_MUSIC), 168, PLT_BRIGHT_YELLOW);
-    drawCustomTextCentered(GET_STR(STR_CREDITS_POWERED), 181, PLT_BRIGHT_YELLOW);
+    drawCustomTextCentered(GET_STR(STR_CREDITS_CODE), 161, PLT_BRIGHT_YELLOW);
+    drawCustomTextCentered(GET_STR(STR_CREDITS_MUSIC), 172, PLT_BRIGHT_YELLOW);
+    drawCustomTextCentered(GET_STR(STR_CREDITS_POWERED), 183, PLT_BRIGHT_YELLOW);
     drawCustomTextCentered((const u8*)"2026", 194, PLT_BRIGHT_YELLOW);
 }
 
@@ -2976,11 +3023,28 @@ void showIntro() {
         cpct_scanKeyboard_f();
         if (cpct_isKeyPressed(Key_1)) {
             num_players = 1;
+            demo_mode = 0;
             break;
         }
         if (cpct_isKeyPressed(Key_2)) {
             num_players = 2;
+            demo_mode = 0;
             break;
+        }
+        if (cpct_isKeyPressed(Key_0)) {
+            num_players = 1;
+            demo_mode = 1;
+            break;
+        }
+        if (cpct_isKeyPressed(Key_3)) {
+            if (!key_3_held) {
+                game_difficulty++;
+                if (game_difficulty > 2) game_difficulty = 0;
+                drawDifficultyLine(); // Optimized redraw
+                key_3_held = 1;
+            }
+        } else {
+            key_3_held = 0;
         }
         if (cpct_isKeyPressed(Key_H)) {
             showControls();
@@ -3307,7 +3371,36 @@ void main(void) {
         while (lives > 0 && !game_won) {
             // --- Input and Toggles ---
             cpct_scanKeyboard_f();
+
+            // Demo mode logic: auto-launch, auto-fire, and exit detection
+            if (demo_mode) {
+                // Exit demo if any of the main keys are pressed
+                if (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Key_Esc) || 
+                    cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Key_CursorRight)) {
+                    demo_mode = 0;
+                    break;
+                }
+                
+                // Auto-launch if ball is attached to paddle (handled now in updateBallOnPaddle)
+                
+                // Auto-fire if laser is active
+                if (laser_active) {
+                    demo_fire_timer++;
+                    if (demo_fire_timer > 30) { // Every 0.6 seconds
+                        fireLaser();
+                        demo_fire_timer = 0;
+                    }
+                }
+            }
+
             handleGameToggles();
+            
+            // Check door exit if nextLevel didn't trigger it yet
+            // (Normally nextLevel is called in updatePaddle, but we double check here)
+            if (door_open && paddle.x >= WALL_RIGHT_BYTES) {
+                nextLevel();
+                continue;
+            }
 
             // --- Update (skipped when paused) ---
             if (!paused) {

@@ -61,6 +61,11 @@ static const u8 s_gr_STR_CREDITS_CODE[] = "KWDIKAS KAI GFX: ISSALIG";
 static const u8 s_gr_STR_CREDITS_MUSIC[] = "MOYSIKH: ULTRASYD";
 static const u8 s_gr_STR_CREDITS_POWERED[] = "ME THN CPCTELERA";
 static const u8 s_gr_STR_GO_TO_THE_DOOR[] = "ORA NA FEYGOYME!";
+static const u8 s_gr_STR_DEMO[] = "0. DEMO MODE";
+static const u8 s_gr_STR_DIFFICULTY[] = "3. DYSKOLIA: ";
+static const u8 s_gr_STR_EASY[] = "EYKOLO";
+static const u8 s_gr_STR_NORMAL[] = "KANONIKO";
+static const u8 s_gr_STR_HARD[] = "DYSKOLO";
 
 const u8* const lang_gr[STR_COUNT] = {
     s_gr_STR_GAME_MODE, s_gr_STR_1_PLAYER, s_gr_STR_2_PLAYERS, s_gr_STR_PRESS_H_HELP, s_gr_STR_CONTROLS, s_gr_STR_KEY_LEFT, s_gr_STR_MOVE_LEFT, s_gr_STR_KEY_RIGHT, s_gr_STR_MOVE_RIGHT,
@@ -69,7 +74,8 @@ const u8* const lang_gr[STR_COUNT] = {
     s_gr_STR_I_DESC, s_gr_STR_U_DESC, s_gr_STR_F_DESC, s_gr_STR_CONGRATS, s_gr_STR_RECOVERED_MOTO, s_gr_STR_NOW_GO_BREAD,
     s_gr_STR_NOW_GO_BREAD_2, s_gr_STR_EAT_SANDWICH, s_gr_STR_SQUID_BOCATA, s_gr_STR_GAME_OVER, s_gr_STR_NO_MOTO_NO_EAT, s_gr_STR_STORY_1, s_gr_STR_STORY_2, s_gr_STR_STORY_3, s_gr_STR_STORY_4, s_gr_STR_STORY_5,
     s_gr_STR_STORY_6, s_gr_STR_STORY_7, s_gr_STR_STORY_WIN_1, s_gr_STR_STORY_WIN_2, s_gr_STR_PLAYER_START, s_gr_STR_LEVEL,
-    s_gr_STR_CREDITS_CODE, s_gr_STR_CREDITS_MUSIC, s_gr_STR_CREDITS_POWERED, s_gr_STR_GO_TO_THE_DOOR
+    s_gr_STR_CREDITS_CODE, s_gr_STR_CREDITS_MUSIC, s_gr_STR_CREDITS_POWERED, s_gr_STR_GO_TO_THE_DOOR, s_gr_STR_DEMO,
+    s_gr_STR_DIFFICULTY, s_gr_STR_EASY, s_gr_STR_NORMAL, s_gr_STR_HARD
 };
 #endif
 

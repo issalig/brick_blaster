@@ -59,6 +59,11 @@ typedef enum {
     STR_CREDITS_MUSIC,
     STR_CREDITS_POWERED,
     STR_GO_TO_THE_DOOR,
+    STR_DEMO,
+    STR_DIFFICULTY,
+    STR_EASY,
+    STR_NORMAL,
+    STR_HARD,
     STR_COUNT
 } string_id_t;
 
