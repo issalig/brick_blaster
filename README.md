@@ -77,9 +77,10 @@ The project includes a modern web-based emulator portal located in the `web/` di
 - **Vibrant UI**: Responsive design with CSS animations and localized metadata.
 
 ### Running the Web Portal:
-The web portal can be run in two ways:
-1.  **Direct File Access**: Simply open `web/index.html` in your browser. It works directly via the `file://` protocol because all disk assets are embedded as Base64.
-2.  **Local HTTP Server**: You can also use a simple server:
+The web portal can be accessed in three ways:
+1.  **Online (GitHub Pages)**: Play directly at [https://issalig.github.io/brick_blaster/](https://issalig.github.io/brick_blaster/)
+2.  **Direct File Access**: Simply open `web/index.html` in your browser. It works directly via the `file://` protocol because all disk assets are embedded as Base64.
+3.  **Local HTTP Server**: You can also use a simple server:
     ```bash
     python3 -m http.server 8000
     ```
