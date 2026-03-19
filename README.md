@@ -7,7 +7,7 @@
 ## Features
 
 - **Classic Arcade Action**: Smoothed paddle movement and refined ball physics for an authentic retro feel.
-- **7 Challenging Levels**: Including a final boss with custom AI and unique defeat sequence.
+- **10 Challenging Levels**: Including a final boss with custom AI and unique defeat sequence.
 - **Dynamic Power-ups**:
   - **L** (Enlarge): Increases paddle size.
   - **S** (Slow): Reduces ball speed.
