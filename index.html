@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brick Blaster - Play Online</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- RetroVirtualMachine Web Player -->
+    <script src="https://cdn.rvmplayer.org/rvmplayer.cpc6128.min.js"></script>
+    <script src="assets/i18n.js"></script>
+</head>
+<body>
+    <div class="starfield" id="starfield"></div>
+
+    <div class="container">
+        <div class="lang-switcher">
+            <button class="lang-btn" data-lang="es" onclick="setLanguage('es')">ES</button>
+            <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
+            <button class="lang-btn" data-lang="fr" onclick="setLanguage('fr')">FR</button>
+            <button class="lang-btn" data-lang="gr" onclick="setLanguage('gr')">GR</button>
+        </div>
+
+        <header>
+            <h1 data-i18n="title">Brick Blaster</h1>
+            <p class="subtitle" data-i18n="subtitle">VESPA RECOVERY MISSION</p>
+        </header>
+
+        <main class="emulator-wrapper">
+            <!-- The emulator is isolated in an iframe to prevent memory/audio duplication on language change -->
+            <iframe id="emulator-frame" src="about:blank" frameborder="0" scrolling="no" allow="autoplay"></iframe>
+        </main>
+
+        <section class="info-panels">
+            <div class="panel">
+                <h3 data-i18n="controls">CONTROLS</h3>
+                <ul class="controls-list">
+                    <li><span data-i18n="moveLeft">Move Left</span> <span class="key">O</span></li>
+                    <li><span data-i18n="moveRight">Move Right</span> <span class="key">P</span></li>
+                    <li><span data-i18n="fire">Fire / Action</span> <span class="key">SPACE</span></li>
+                    <li><span data-i18n="pause">Pause</span> <span class="key">ESC</span></li>
+                    <li><span data-i18n="music">Music Toggle</span> <span class="key">M</span></li>
+                </ul>
+            </div>
+            <div class="panel">
+                <h3 data-i18n="storyTitle">STORY</h3>
+                <p data-i18n="story1" style="line-height: 1.6; color: var(--text-secondary); margin-bottom: 1rem;">
+                    It was a normal morning. You went for bread, but <strong>Martin the Martian</strong> stole your scooter.
+                    Now you are trapped in a <strong>space prison of bricks</strong>. 
+                </p>
+                <p data-i18n="story2" style="line-height: 1.6; color: var(--text-secondary);">
+                    Your weapon: an ironing board and a nuclear tennis ball. 
+                    Get your scooter back and return in time for dinner!
+                </p>
+            </div>
+            <div class="panel download-panel">
+                <h3 data-i18n="downloadTitle">DOWNLOAD DSK</h3>
+                <p data-i18n="downloadText" style="line-height: 1.6; color: var(--text-secondary); margin-bottom: 1.5rem;">
+                    Play on your favorite emulator.
+                </p>
+                <a id="download-link" href="#" class="download-btn" data-i18n="downloadBtn">DOWNLOAD .DSK</a>
+            </div>
+        </section>
+        
+        <footer class="credits-footer">
+            <span data-i18n="creditsCode">CODE & GFX: ISSALIG</span>
+            <span class="dot">•</span>
+            <span data-i18n="creditsMusic">MUSIC: ULTRASYD</span>
+            <span class="dot">•</span>
+            <span data-i18n="creditsPowered">POWERED BY CPCTELERA</span>
+            <span class="dot">•</span>
+            <span data-i18n="creditsYear">2026</span>
+        </footer>
+    </div>
+
+    <script>
+        // Initialization of stars and other UI elements
+        window.onload = () => {
+            // Initial language is handled by i18n.js
+        };
+
+        // Generate stars dynamically
+        const starfield = document.getElementById('starfield');
+        const starCount = 150;
+
+        for (let i = 0; i < starCount; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            
+            const size = Math.random() * 2 + 'px';
+            star.style.width = size;
+            star.style.height = size;
+            
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            
+            const duration = Math.random() * 50 + 50 + 's';
+            star.style.animationDuration = duration;
+            star.style.opacity = Math.random();
+            star.style.animationDelay = -Math.random() * 100 + 's';
+            
+            starfield.appendChild(star);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+        #rvmplayer { width: 100%; height: 100%; }
+        .loading { 
+            color: #00ff00; font-family: 'Courier New', Courier, monospace; 
+            text-align: center; padding-top: 20%; 
+            text-shadow: 0 0 10px #00ff00;
+        }
+    </style>
+    <script src="https://cdn.rvmplayer.org/rvmplayer.cpc6128.min.js"></script>
+</head>
+<body>
+    <div id="rvmplayer">
+        <div class="loading" id="loader">LOADING SYSTEM...</div>
+    </div>
+
+    <script>
+        // Get language from URL: ?lang=xx
+        const urlParams = new URLSearchParams(window.location.search);
+        const lang = urlParams.get('lang') || 'en';
+
+        // Load the localized disk script
+        const script = document.createElement('script');
+        script.src = `assets/disk_${lang}.js`;
+        script.onload = () => {
+            initEmulator();
+        };
+        script.onerror = () => {
+            document.getElementById('rvmplayer').innerHTML = `<div class="loading" style="color:red">ERROR: DISK NOT FOUND (${lang.toUpperCase()})</div>`;
+        };
+        document.head.appendChild(script);
+
+        function initEmulator() {
+            const container = document.getElementById('rvmplayer');
+            if (typeof rvmPlayer_cpc6128 === 'function' && window.diskData) {
+                container.innerHTML = '';
+                rvmPlayer_cpc6128(container, {
+                    disk: {
+                        type: 'dsk',
+                        url: 'data:application/octet-stream;base64,' + window.diskData
+                    },
+                    command: 'run"disc"\n',
+                    warpFrames: 1000,
+                    videoMode: 'tv',
+                    pause: false, // Don't pause on start if we are in the iframe
+                    video: true
+                });
+            } else {
+                container.innerHTML = `<div class="loading" style="color:red">ERROR: EMULATOR NOT READY</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+
+:root {
+    --bg-color: #0f172a;
+    --accent-color: #00f3ff;
+    --secondary-color: #ff00ea;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --glass-bg: rgba(15, 23, 42, 0.65);
+    --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+}
+
+/* Starfield Background */
+.starfield {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+    overflow: hidden;
+}
+
+.star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    opacity: 0.5;
+    animation: move-star linear infinite;
+}
+
+@keyframes move-star {
+    from { transform: translateY(0); }
+    to { transform: translateY(-100vh); }
+}
+
+/* Layout */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 1rem;
+    animation: fadeInDown 1s ease-out;
+}
+
+h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 4rem;
+    letter-spacing: 0.5rem;
+    background: linear-gradient(
+        to right, 
+        #00f3ff, /* Cyan */
+        #10b981, /* Green */
+        #84cc16, /* Lime Green */
+        #f97316, /* Orange */
+        #ef4444, /* Red */
+        #d946ef, /* Magenta */
+        #8b5cf6, /* Mauve */
+        #00f3ff  /* Loop back to Cyan */
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    filter: drop-shadow(0 0 10px rgba(0, 210, 255, 0.3));
+    animation: title-flow 10s linear infinite;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    letter-spacing: 0.2rem;
+}
+
+/* Emulator Section */
+.emulator-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 1rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(20px);
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    animation: scaleIn 0.8s ease-out;
+}
+
+#emulator-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+}
+
+.emulator-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(45deg, var(--accent-color), transparent, var(--secondary-color));
+    border-radius: 22px;
+    z-index: -1;
+    opacity: 0.3;
+}
+
+rvm-player {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4/3;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+}
+
+/* Controls & Info */
+.info-panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.panel {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 2rem;
+    flex: 1;
+    transition: transform 0.3s ease, background 0.3s ease;
+}
+
+.panel:hover {
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateY(-5px);
+}
+
+.panel h3 {
+    font-family: 'Orbitron', sans-serif;
+    margin-top: 0;
+    color: var(--secondary-color);
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    border-bottom: 1px solid rgba(0, 243, 255, 0.2);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.download-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    justify-content: center;
+}
+
+.download-btn {
+    display: inline-block;
+    padding: 1rem 2rem;
+    background: linear-gradient(135deg, var(--secondary-color), #00bcd4);
+    color: #000;
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    font-family: 'Orbitron', sans-serif;
+    border-radius: 8px;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 15px rgba(0, 243, 255, 0.3);
+    text-transform: uppercase;
+    margin-top: 1rem;
+}
+
+.download-btn:hover {
+    transform: scale(1.05) translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 243, 255, 0.5);
+    filter: brightness(1.1);
+}
+
+.download-btn:active {
+    transform: scale(0.98);
+}
+
+.controls-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.controls-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+}
+
+.key {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    font-family: inherit;
+    color: #fff;
+    min-width: 40px;
+    text-align: center;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+#rvmplayer {
+    width: 100%;
+    max-width: 800px;
+    aspect-ratio: 4/3;
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+}
+
+/* Language Switcher */
+.lang-switcher {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    z-index: 100;
+}
+
+.lang-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+.lang-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.lang-btn.active {
+    background: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: #000;
+}
+
+/* Credits Footer */
+.credits-footer {
+    width: 100%;
+    margin-top: 3rem;
+    padding: 1.2rem 2rem;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(0, 243, 255, 0.2);
+    border-radius: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    box-shadow: 0 0 30px rgba(0, 243, 255, 0.05);
+    transition: all 0.3s ease;
+    animation: fadeInUp 1s ease-out 0.5s both;
+}
+
+.credits-footer:hover {
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(255, 0, 234, 0.4);
+    box-shadow: 0 0 40px rgba(0, 243, 255, 0.15), inset 0 0 10px rgba(255, 0, 234, 0.1);
+    transform: translateY(-2px);
+    color: var(--text-primary);
+}
+
+.credits-footer span {
+    transition: text-shadow 0.3s ease;
+}
+
+.credits-footer:hover span {
+    text-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+}
+
+.credits-footer .dot {
+    color: var(--accent-color);
+    opacity: 0.5;
+    font-size: 1.2rem;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes title-flow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+}
+
+/* Responsive UI */
+@media (max-width: 768px) {
+    h1 { font-size: 2.5rem; }
+    .container { padding: 1rem; }
+}
