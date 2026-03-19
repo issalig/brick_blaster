@@ -2,7 +2,7 @@
 
 **Brick Blaster** is a high-octane Arkanoid-style arcade game developed for the Amstrad CPC using the [CPCtelera](https://lronaldo.github.io/cpctelera/) framework. It features dynamic gameplay, multiple power-ups, localized content in four languages, and a challenging final boss encounter.
 
-![Brick Blaster Logo](assets/loading.png)
+![Brick Blaster Logo](assets/loading_320.png)
 
 ## Features
 
@@ -60,9 +60,11 @@ make LANG=EN
 make all_languages
 ```
 
-The resulting files will be generated in the `dist/` directory:
+The resulting files will be generated in the ![dist/](dist/) directory:
 - `brickblaster_[lang].dsk`: Amstrad CPC Disk Image.
 - `brickblaster_[lang].cdt`: Amstrad CPC Cassette Image.
+
+**These are the files you can use to play the game on a real Amstrad CPC or on an emulator.**
 
 ## Web Portal
 
@@ -101,4 +103,4 @@ The web portal can be run in two ways:
 - **Special Thanks**: The Amstrad CPC development community.
 
 ---
-*Me las piro, vampiro!* 🕹️🧛‍♂️
+*Bye, bye, Martian!* 🕹️
