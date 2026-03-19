@@ -1,0 +1,31 @@
+# Brick Blaster - Git Ignore rules
+
+# Build Artifacts
+obj/
+*.rel
+*.asm
+*.lst
+*.sym
+*.noi
+*.lk
+*.map
+*.ihx
+*.bin
+*.rst
+*.log
+
+# Personal/Miscellaneous
+misc/
+
+# Web Assets (Generated)
+web/assets/brickblaster_*.dsk
+web/assets/disk_*.js
+
+# OS & IDE Metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.agents/
+
+# Keep dist/ as it contains the final game releases
+!dist/

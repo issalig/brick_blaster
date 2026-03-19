@@ -1,0 +1,398 @@
+#!/bin/bash
+##-----------------------------LICENSE NOTICE------------------------------------
+##  This file is part of CPCtelera: An Amstrad CPC Game Engine 
+##  Copyright (C) 2015 ronaldo / Fremos / Cheesetea / ByteRealms (@FranGallegoBR)
+##
+##  This program is free software: you can redistribute it and/or modify
+##  it under the terms of the GNU Lesser General Public License as published by
+##  the Free Software Foundation, either version 3 of the License, or
+##  (at your option) any later version.
+##
+##  This program is distributed in the hope that it will be useful,
+##  but WITHOUT ANY WARRANTY; without even the implied warranty of
+##  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+##  GNU Lesser General Public License for more details.
+##
+##  You should have received a copy of the GNU Lesser General Public License
+##  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+##------------------------------------------------------------------------------
+
+###########################################################################
+## CPCTELERA ENGINE
+###########################################################################
+
+##
+## File: cpct_img2tileset
+##
+##    Converts an image file with a set of tile or sprite images into a 
+## CPCtelera C-array tileset along with arrays for all tiles/sprites.
+##
+## Usage:
+##    <cpct_img2tileset> [options] [image_file]
+##
+## Requisites:
+##    This scripts uses Img2CPC utility by Augusto Ruiz to convert the PNG
+## file into screen pixel definitions. This requires freeimage libraries to be
+## installed under Linux and MacOSX (they are already included for Windows/Cygwin)
+##
+## Description:
+##    This script converts an image file containing a set of tile or sprite definitions
+## of the same size into 2 files (.c and .h) ready to be passed to the C compiler 
+## for inclusion into a program. 
+##    By default, this script converts the image into 4x4-pixel tiles. This means that
+## the script splits the whole image into 4x4-pixel individual images and converts each
+## one of them into a tile. You may change sizes by using -tw / -th command line modifiers. 
+##    Generated output contains screen-pixel-format defined arrays with all the individual
+## sprites extracted from the image file. It also contains an aditional array, named _tileset,
+## with pointers to all generated tiles/sprites. This tileset array may be optinally not 
+## generated with -nt | --no-tileset modifier.
+##    To do the conversion, the script calls Img2CPC, which reads pixels one by one 
+## and transform them into the closest colour value from the defined Amstrad CPC palette. 
+## If no palette is given to this script, standard Amstrad CPC palette is used (the one 
+## that is set when a CPC computer starts).
+##    Provided image file may be a PNG, JPG, BMP, GIF or TIFF file. 
+##
+## Command line options:
+##    -pf  | --palette-firmware <palete_array> - Sets the Amstrad CPC palette 
+##               to be used for the conversion as an array of firmware colour values (up to 16, 
+##               in mode 0). Values must be passed inside '{' '}' and separated by spaces. 
+##               Following example sets mode 1 palette to Black, white, red and green colours, 
+##               to convert the file tiles.png,
+##
+##                        > cpct_img2tileset -m 1 -pf { 0 26 6 18 } tiles.png
+##
+##    -nt  | --no-tileset                      - Do not generate a tileset array containing pointers to
+##                                              generated sprites/tiles.
+##    -oph | --output-palette-hardware         - Generate output palette array containing hardware values
+##    -im  | --interlaced-masks                - Generates transparent sprites with interlaced masks
+##                                              using 0 as the default index of the palette colour to
+##                                              be considered transparent
+##    -t   | --transparent-index <index>       - Changes the colour index to be considered transparent
+##                                              and is used to generate masks.
+##    -bn  | --tiles-basename  <name>          - Sets the basename that will be used as C identifier 
+##                                              for tiles or sprites. Default: g_tile
+##    -m   | --mode <cpc_graphics_mode>        - Sets the CPC Graphics mode the output data will 
+##                                              be produced for (0, 1 or 2). Default: 0.
+##    -tw  | --tile-width   <pixels>           - Sets the width of a tile in pixels. Default: 4.
+##    -th  | --tile-height  <pixels>           - Sets the height of a tile in pixels. Default: 4.
+##    -h   | --help                            - Shows help information on the terminal.
+##
+##
+
+## Bash Include files
+source $(dirname $0)/lib/bash_library.sh
+
+## Img2CPC utility location
+IMG2CPC=${CPCT_PATH}/tools/img2cpc/bin/img2cpc
+
+## Configuration 
+PALETTE=( 1 24 20 6 26 0 2 8 10 12 14 16 18 22 24 16 )
+PALETTE_SIZE=16
+GENTILESET_MSG="no"
+INTERLACED_MASKS=""
+INTERLACED_MASKS_MSG="no"
+TRANSPARENT_INDEX=""
+TRANSPARENT_INDEX_MSG="no"
+TILES_WIDTH=4
+TILES_HEIGHT=4
+TILES_BASENAME=g_tile
+MODE=0
+MODEFACTOR=( 2 4 8 )
+MODECOLOURS=( 16 4 2 )
+
+## Simbols used as 'parentheses' delimiters for passing arrays as parameters
+LPAR="{"
+RPAR="}"
+
+## Show how this script is to be used and exit
+##
+function usage() {
+   echo "${COLOR_LIGHT_YELLOW}USAGE"
+   echo "  ${COLOR_LIGHT_BLUE}$(basename $0) [options] <image_file>"
+   echo
+   echo "${COLOR_CYAN}    Converts an image file with a set of tile or sprite images into a \
+CPCtelera C-array tileset along with arrays for all tiles/sprites."
+   echo 
+   echo "${COLOR_LIGHT_YELLOW}Requisites:"
+   echo "${COLOR_CYAN}    This scripts uses Img2CPC utility by Augusto Ruiz to convert the PNG \
+file into screen pixel definitions. This requires freeimage libraries to be \
+installed under Linux and MacOSX (they are already included for Windows/Cygwin)"
+   echo 
+   echo "${COLOR_LIGHT_YELLOW}Description:"
+   echo "${COLOR_CYAN}    This script converts an image file containing a set of tile or sprite \
+definitions of the same size into 2 files (.c and .h) ready to be passed to the C compiler for \
+inclusion into a program."
+   echo "    By default, this script converts the image into 4x4-pixel tiles. This means that \
+the script splits the whole image into 4x4-pixel individual images and converts each one of them \
+into a tile. You may change sizes by using -tw / -th command line modifiers."
+   echo "    Generated output contains screen-pixel-format defined arrays with all the individual \
+sprites extracted from the image file. It also contains an aditional array, named _tileset, \
+with pointers to all generated tiles/sprites. This tileset array may be optinally not generated \
+with -nt | --no-tileset modifier."
+   echo "    To do the conversion, the script calls Img2CPC, which reads pixels one by one \
+and transform them into the closest colour value from the defined Amstrad CPC palette. \
+If no palette is given to this script, standard Amstrad CPC palette is used (the one \
+that is set when a CPC computer starts)."
+   echo "    Provided image file may be a PNG, JPG, BMP, GIF or TIFF file. "
+   echo
+   echo "${COLOR_LIGHT_YELLOW}OPTIONS"
+   echo 
+   echo "${COLOR_LIGHT_BLUE}  -pf  | --palette-firmware <palete_array> "
+   echo "${COLOR_CYAN}       Sets the Amstrad CPC palette to be used for the conversion as an array \
+of firmware colour values (up to 16, in mode 0). Values must be passed inside '$LPAR' '$RPAR' and \
+separated by spaces. Following example sets mode 1 palette to Black, white, red and green colours, \
+to convert the file tiles.png: "
+   echo
+   echo "          ${COLOR_WHITE}cpct_img2tileset -m 1 -pf { 0 26 6 18 } tiles.png"
+   echo
+   echo "${COLOR_LIGHT_BLUE}  -nt  | --no-tileset"
+   echo "${COLOR_CYAN}       Do not generate a tileset array containing pointers to generated sprites/tiles."
+   echo "${COLOR_LIGHT_BLUE}  -oph | --output-palette-hardware"
+   echo "${COLOR_CYAN}       Generate output palette array containing hardware values."
+   echo "${COLOR_LIGHT_BLUE}  -bn  | --tiles-basename  <name>"
+   echo "${COLOR_CYAN}       Sets the basename that will be used as C identifier for tiles or sprites. Default: g_tile"
+   echo "${COLOR_LIGHT_BLUE}  -im  | --interlaced-masks"
+   echo "${COLOR_CYAN}       Generates transparent sprites with interlaced masks using 0 as the default colour index \
+of the palette to be considered transparent."
+   echo "${COLOR_LIGHT_BLUE}  -t   | --transparent-index <colour_index>"
+   echo "${COLOR_CYAN}       Changes the colour index to be considered transparent and is used to generate masks"
+   echo "${COLOR_LIGHT_BLUE}  -m   | --mode   <cpc_graphics_mode>"
+   echo "${COLOR_CYAN}       Sets the CPC Graphics mode the output data will be produced for (0, 1 or 2). Default: 0."
+   echo "${COLOR_LIGHT_BLUE}  -tw  | --tile-width   <pixels>"
+   echo "${COLOR_CYAN}       Sets the width of a tile in pixels. Default: 4."
+   echo "${COLOR_LIGHT_BLUE}  -th  | --tile-height  <pixels>"
+   echo "${COLOR_CYAN}       Sets the height of a tile in pixels. Default: 4."
+   echo "${COLOR_LIGHT_BLUE}  -h   | --help"
+   echo "${COLOR_CYAN}       Shows this help information"
+   echo ${COLOR_NORMAL}
+   exit 1
+}
+
+##############################################################
+###############################################################
+## Check command line parameters
+##
+
+if (( $# < 1 )); then
+   usage
+fi
+
+while (( $# >= 1 )); do
+   case $1 in
+      ## Do not generate tilesets
+      "-nt" | "--no-tileset")
+         GENTILESET="-nt"
+         GENTILESET_MSG="yes"
+      ;;
+      ## Generate output palette as hardware values
+      "-oph" | "--output-palette-hardware")
+         OUTPUTPALETTE="-ophw"
+      ;;
+      ## Generate interlaced masks with a transparent colour
+      "-im" | "--interlaced-masks")        
+         INTERLACED_MASKS="-im"
+         INTERLACED_MASKS_MSG="yes"
+         TRANSPARENT_INDEX="-t 0"
+         TRANSPARENT_INDEX_MSG="Palette Index(0)"
+      ;;
+      ## Get transparent Index for generating Masks
+      "-t" | "--transparent-index")
+         ## Transparent index must be between 0 and 15
+         if isEmpty "$2"; then
+            paramError "Parameter -t (--transparent-index) must be followed by the integer colour index (0-15)." 8
+         elif ! isInt "$2"; then
+            paramError "Colour index '$2' for option -t (--transparent-index) is not a valid integer number." 9
+         elif (( "$2" < 0 || "$2 " > 15 )); then
+            paramError "Colour index '$2' for option -t (--transparent-index) is out of valid palette range (0-15)" 10
+         fi
+         TRANSPARENT_INDEX="-t $2"
+         TRANSPARENT_INDEX_MSG="Palette Index($2)"
+         shift
+      ;;
+      ## Get a palette as an array of firmware values
+      "-pf" | "--palette-firmware")
+         ## Error messages
+         PALETTEERROR="Parameter -pf (--palette-firmware) must be followed by an array \
+            of firmware colour values (integers from 0 to 26) separated by spaces and \
+            enclosed into '$LPAR' '$RPAR'. An example setting palette colours 0 to 3 could be \
+            this one: $LPAR 1 20 4 5 $RPAR "
+         INTEGERERROR="is not an integer value between 0 and 26. $PALETTEERROR"
+
+         ## Set Palette to 0's and palete size to 0
+         PALETTE=( 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 )
+
+         ## Check initial parenthesis
+         shift
+         NEXT=$1
+         if [[ "${NEXT:0:1}" != "$LPAR" ]]; then
+            paramError "$PALETTEERROR" 12
+         elif (( ${#NEXT} > 1 )); then
+            NEXT=${NEXT:1}
+         else
+            shift
+            NEXT=$1
+         fi
+
+         ## Go through all palette values
+         i=0
+         RPAR_FOUND=0
+         while (( ! RPAR_FOUND )); do
+            ## Check for parenthesis first
+            if (( ${#NEXT} > 1 )) && [[ "${NEXT:(-1)}" == "$RPAR" ]]; then
+               RPAR_FOUND=1
+               NLEN1=$(( ${#NEXT} - 1 ))
+               NEXT=${NEXT:0:$NLEN1}
+            fi
+            if [[ "$NEXT" == "$RPAR" ]]; then
+               RPAR_FOUND=1
+            elif isEmpty "$NEXT"; then
+               paramError "Closing '$RPAR' not found while processing palette array."
+            elif ! isInt "$NEXT" || (( NEXT < 0 || NEXT > 26 )); then
+               paramError "'$NEXT' $INTEGERERROR" 13
+            else
+               ## Insert new palette element only if we have not exceeded size
+               if (( i > 15 )); then
+                  paramError "Palette array exceeds maximum size. It must have 16 values at most."
+               fi               
+               PALETTE[$i]="$NEXT"
+   
+               ## Move to next value
+               if (( ! RPAR_FOUND )); then
+                  i=$((i+1))
+                  shift
+                  NEXT="$1"
+               fi
+            fi
+         done
+         PALETTE_SIZE=$((i+1))
+      ;;
+      ## Get basename for tiles
+      "-bn" | "--tiles-basename")
+         ## Basename for tiles must be a valid C identifier
+         if isEmpty "$2"; then
+            paramError "Parameter -bn (--tiles-basename) must be followed by a valid C identifier." 4
+         elif [[ "${2:0:1}" =~ [^A-Za-z_] ]]; then
+            paramError "Parameter -bn (--tiles-basename) must be followed by a valid C identifier, starting by an alphabetic character or '_'." 5
+         elif [[ "$2" =~ .*[^0-9A-Za-z_].* ]]; then
+            paramError "Parameter -bn (--tiles-basename) must be followed by a valid C identifier, only containing alphanumeric characters or '_'." 6
+         fi
+
+         TILES_BASENAME="$2"
+         shift
+      ;;
+      ## Get tile width
+      "-m" | "--mode")
+
+         ## CPC Mode must be 0, 1 or 2
+         if [[ "$2" != "0" && "$2" != "1" && "$2" != "2" ]]; then
+            paramError "Parameter -m (--mode) must be followed by a valid Amstrad CPC mode (0, 1 or 2)." 7
+         fi
+         MODE=$2
+         shift
+      ;;
+      ## Get tile width
+      "-tw" | "--tile-width")
+
+         ## Tile width must be an integer
+         if ! isInt "$2"; then
+            paramError "Parameter -tw (--tile-width) must be followed by an integer representing the width of a tile in bytes." 8
+         fi
+         TILES_WIDTH=$2
+         shift
+      ;;
+      ## Get tile height
+      "-th" | "--tile-height")
+
+         ## Tile height must be an integer
+         if ! isInt "$2"; then
+            paramError "Parameter -th (--tile-height) must be followed by an integer representing the hieght of a tile in bytes." 9
+         fi
+         TILES_HEIGHT=$2
+         shift
+      ;;
+      ## Show Help
+      "-h" | "--help")
+         usage
+      ;;
+      ## Get main parameter (filename)
+      *)
+         if isCommandLineOption "$1"; then
+            paramError "Unrecognized command line option '$1'" 10
+         elif ! isEmpty "$FILE"; then
+            paramError "Unrecognized parameter '$1'. Have you already provided a <filename> parameter?" 11
+         else
+            EnsureExists file "$1"
+         fi
+         FILE="$1"
+         IMG2CPC_OUTPUT="$(filenameWithNoExt "$FILE")"
+      ;;
+   esac
+   shift
+done
+
+## File parameter must have been passed (not empty)
+if isEmpty "$FILE"; then
+   paramError "A <filename> parameter is required." 12
+fi
+
+## Check Img2CPC
+if [ ! -f $IMG2CPC ]; then
+   Error "'$IMG2CPC' does not exist or is not readable. This file is required for cpct_img2tileset \
+to work properly. Please, check CPCtelera's tools installation and ensure Img2CPC is correctly installed."
+elif [ ! -x $IMG2CPC ]; then
+   echo "${COLOR_LIGHT_YELLOW}WARNING:${COLOR_CYAN}"
+   echo "   '$IMG2CPC' is not executable. Execution permission is required to convert images to code.${COLOR_LIGHT_CYAN}"
+   echo
+   askSimpleQuestion y n "Do you want this script to try to make it executable? (y/n)" ANSWER
+   echo "${COLOR_NORMAL}"
+   echo
+   if [[ "$ANSWER" == "n" ]]; then
+      paramError "'$IMG2CPC' has not been modified. This script cannot continue. Aborting. "
+   fi
+   echo "Changing '$IMG2CPC' execution permission... "
+   if ! chmod +x "$IMG2CPC"; then
+      Error "Your user has not got enough privileges to change $IMG2CPC' execution permission. Please, change it \
+manually and run this script again."
+   fi
+fi
+
+###############################################################
+###############################################################
+## Convert image to CPCtelera's C Array.
+##
+
+## Start processing and print useful information
+echo
+echo "${COLOR_LIGHT_YELLOW}PROCESSING FILE '${COLOR_NORMAL}$FILE${COLOR_CYAN}'"
+echo "${COLOR_GREEN}CPC Mode        : ${COLOR_LIGHT_YELLOW}${MODE}${COLOR_CYAN}"
+echo "${COLOR_GREEN}Tile Size       : ${COLOR_LIGHT_YELLOW}${TILES_WIDTH}x${TILES_HEIGHT}${COLOR_CYAN} pixels"
+echo "${COLOR_GREEN}Interlaced Mask : ${COLOR_LIGHT_YELLOW}${INTERLACED_MASKS_MSG}"
+echo "${COLOR_GREEN}Transparency    : ${COLOR_LIGHT_YELLOW}${TRANSPARENT_INDEX_MSG}"
+echo "${COLOR_GREEN}Generate Tileset: ${COLOR_LIGHT_YELLOW}${GENTILESET_MSG}"
+echo "${COLOR_GREEN}Basename        : ${COLOR_LIGHT_YELLOW}'${TILES_BASENAME}'"
+printf "${COLOR_GREEN}Palette         : ${COLOR_LIGHT_YELLOW}"
+for((i=0; i < ${MODECOLOURS[$MODE]}; i++)); do
+   printf "%s " ${PALETTE[$i]}
+done
+echo "${COLOR_CYAN}(Firmware values)${COLOR_NORMAL}"
+
+## Pass img2cpc to convert to CPCtelera's C Arrays
+echo "${COLOR_LIGHT_RED}[${COLOR_LIGHT_YELLOW}PROCESSING${COLOR_LIGHT_RED}]${COLOR_LIGHT_YELLOW} ${COLOR_CYAN}Converting tiles \
+to ${COLOR_NORMAL}CPCtelera${COLOR_CYAN}'s C code using ${COLOR_NORMAL}Img2CPC${COLOR_CYAN}..."
+
+## Run IMG2CPC and check exit status
+if ${IMG2CPC} -fwp "$(valuesToCommaList ${PALETTE[@]:0:$PALETTE_SIZE})" -of c -m "$MODE" \
+-w "$TILES_WIDTH" -h "$TILES_HEIGHT" -bn "$TILES_BASENAME" --includes "<types.h>" -osz \
+-o "$IMG2CPC_OUTPUT" $INTERLACED_MASKS $TRANSPARENT_INDEX $GENTILESET $OUTPUTPALETTE "${FILE}"; then
+   ## Success message
+   echo "${COLOR_LIGHT_GREEN} SUCCESS! ${COLOR_CYAN}Files '${COLOR_NORMAL}${IMG2CPC_OUTPUT}.c${COLOR_CYAN}' and \
+'${COLOR_NORMAL}${IMG2CPC_OUTPUT}.h${COLOR_CYAN}' have been created with ${COLOR_NORMAL}CPCtelera${COLOR_CYAN}'s \
+codification of tiles/sprites from '${COLOR_NORMAL}$FILE${COLOR_CYAN}'.${COLOR_NORMAL}"
+   echo
+else
+   ## Error message
+   echo "${COLOR_LIGHT_RED}ERROR!${COLOR_WHITE} Some error happened while processing file with img2cpc. Please, "\
+"review files and image conversion optins to fix the problem.${COLOR_NORMAL}"
+   echo
+   exit 20
+fi
