@@ -23,6 +23,8 @@
   - **G** (Gravity): Increases vertical ball speed (Trap).
   - **I** (Invisibility): Balls and paddle become hard to see (Trap).
   - **U** (Upside Down): Inverts controls (Trap).
+- **Autonomous Demo Mode**: Watch the game play itself with fully automated AI-driven paddle and firing.
+- **Selectable Difficulty**: Choose between Easy, Normal, and Hard modes to suit your skill level.
 - **Multi-language Support**: Fully localized in English, Spanish, French, and Greek.
 - **Web Portal Integration**: Includes a web-based emulator to play directly in the browser.
 
@@ -35,6 +37,8 @@
 | **SPACE** | Launch Ball / Fire Laser |
 | **ESC** | Pause / Back to Menu |
 | **M** | Toggle Music |
+| **0** | Enter Autonomous Demo Mode (from Menu) |
+| **3** | Cycle Difficulty Levels (from Menu) |
 | **H** | View Help / Power-ups |
 
 ## How to Build

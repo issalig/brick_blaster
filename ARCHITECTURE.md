@@ -26,6 +26,11 @@ The game is designed around several key structures defined in `src/main.c`:
 -   **`boss_t`**: A state-machine based structure for the final encounter.
     -   `state`: 0=Sleeping, 1=Attacking, 2=Exploding.
     -   `health`: Hit point tracking.
+-   **`demo_mode`**: A global flag that enables autonomous gameplay.
+    -   **Autopilot AI**: Automatically steers the paddle towards the ball's X-coordinate.
+    -   **Auto-Fire**: Automatically fires lasers when the power-up is active.
+    -   **Auto-Launch**: Launches the ball after a 2-second delay if it's held.
+    -   **Auto-Exit**: Detects when the exit door is open and steers the paddle toward it.
 -   **`enemy_t`**: Represents flying hazards that spawn periodically.
     -   `type`: Determines the sprite and movement pattern.
     -   `dx`: Horizontal drift direction.
@@ -47,20 +52,16 @@ The core of the level design is a compact 2D grid (`bricks[8][8]`). To minimize 
     -   **Deferred Erasure**: The main loop detects the erase flag, triggers the power-up drop if applicable, and restores the background pattern to "erase" the brick visually without a full screen redraw.
 4.  **Completion Condition**: The game tracks a counter `active_bricks`. Only `BTYPE_NORMAL` and `BTYPE_HARD` contribute to this count. When `active_bricks` reaches 0, the current level is marked as cleared (`level_cleared = 1`), and the transition logic is triggered.
 
-## 3. Difficulty & Progression
+The game features three selectable difficulty levels (Easy, Normal, Hard) that control the ball's speed expansion rate:
 
-The game's difficulty scales primarily through **Ball Speed** increments every two levels:
+| Difficulty | Increment per 2 levels | Max Speed Offset |
+| :--- | :--- | :--- |
+| **Easy (1)** | +8 units | +80 units |
+| **Normal (2)** | +15 units | +150 units |
+| **Hard (3)** | +20 units | +200 units |
 
-| User-Facing Levels | Internal Index | Speed (Fixed Point) | Pixels/Frame |
-| :--- | :--- | :--- | :--- |
-| **1 - 2** | 0 - 1 | 150 | 2.3 px |
-| **3 - 4** | 2 - 3 | 165 | 2.5 px |
-| **5 - 6** | 4 - 5 | 180 | 2.8 px |
-| **7 - 8** | 6 - 7 | 195 | 3.0 px |
-| **9 - 10** | 8 - 9 | 210 | 3.2 px |
-
-- **Formula**: `INITIAL_BALL_SPEED + (current_level / 2) * 15`.
-- **Cap**: The speed is capped at 300 units to ensure gameplay remains manageable even in custom high-level scenarios.
+- **Formula**: `INITIAL_BALL_SPEED + (current_level / 2) * increment`.
+- **Key Logic**: The `3` key cycles through difficulty levels in the main menu. To prevent animation stutter, it uses optimized **partial redrawing**, refreshing only the difficulty text line instead of the entire screen.
 
 ## 4. Scoring System
 
@@ -186,6 +187,17 @@ The game's audio is powered by the **Arkos Tracker (AKP)** player, integrated wi
     2.  **Palette Initialization**: Reads and applies a 16-color palette (provided by `img2scr.py`) using `INK` commands to match the loading screen's colors.
     3.  **Visual Feedback**: Loads `loading.scr` directly into Video RAM (`&C000`) to display the title/loading screen.
     4.  **Execution**: Launches the main game binary (`RUN"!brickbla.bin"`) to start the compiled engine.
+
+## 11. Technical Refinements & Fixes
+
+### Enemy Screen Wrap Protection
+To prevent visual glitches where enemies appeared in the HUD area, a safety clipping mechanism was implemented. Enemies are now deactivated if their vertical coordinate exceeds `192` (8 lines before the physical screen bottom). Additionally, the drawing routine performs a bounds check `y + height <= 200` before writing to VRAM.
+
+### Optimized Menu Redrawing
+Menu interactions (like switching difficulty) use **Delta Redrawing**. Instead of clearing and repainting the entire menu, only the specific line containing the changed value is updated. This prevents the pseudo-parallax starfield and Arkos Tracker music from stuttering due to high CPU load during full-screen redraws.
+
+### Automated Exit Transition
+In Demo and Autopilot modes, the paddle AI is enhanced with a **Door Detection** state. Once `door_open` is true, the paddle ignores the ball and steers directly towards the exit threshold (`WALL_RIGHT_BYTES`), facilitating a hands-free transition to the next level.
 
 ---
 *Brick Blaster Architecture - Documented for the future.* 🕹️🧠
