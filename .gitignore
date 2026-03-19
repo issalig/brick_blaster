@@ -18,8 +18,9 @@ obj/
 misc/
 
 # Web Assets (Generated)
-web/assets/brickblaster_*.dsk
-web/assets/disk_*.js
+# We need to track these so GitHub Pages can serve the game
+# web/assets/brickblaster_*.dsk
+# web/assets/disk_*.js
 
 # OS & IDE Metadata
 .DS_Store
