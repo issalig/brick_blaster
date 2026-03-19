@@ -181,6 +181,11 @@ The game's audio is powered by the **Arkos Tracker (AKP)** player, integrated wi
 -   **Execution Stability**: By using interrupts, the music tempo is decoupled from the game logic. Even during heavy CPU moments (like the Boss encounter or massive brick explosions), the music never slows down or "drags", maintaining a perfect 50 FPS rhythm.
 -   **Instrument-Based SFX**: Due to CPCtelera's sound API limitations, which do not allow loading or playing multiple songs (or a separate SFX bank) simultaneously, we use **instruments from the main song** to generate all SFX (via `cpct_akp_SFXPlay`). By re-triggering these instruments at different frequencies, we create complex sounds for collisions and power-ups without needing additional audio buffers.
 -   **PSG Direct Access**: For specific effects (like the "Mute" toggle), the game writes directly to the **AY-3-8912 (PSG)** registers, bypassing the player for immediate audio control.
+-   **`DISC.BAS` Loader**: A small BASIC script used as the primary entry point on the disk image. It's responsible for the following startup sequence:
+    1.  **Environment Setup**: Sets `MODE 0` and `BORDER 0`.
+    2.  **Palette Initialization**: Reads and applies a 16-color palette (provided by `img2scr.py`) using `INK` commands to match the loading screen's colors.
+    3.  **Visual Feedback**: Loads `loading.scr` directly into Video RAM (`&C000`) to display the title/loading screen.
+    4.  **Execution**: Launches the main game binary (`RUN"!brickbla.bin"`) to start the compiled engine.
 
 ---
 *Brick Blaster Architecture - Documented for the future.* 🕹️🧠

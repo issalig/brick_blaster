@@ -36,7 +36,7 @@
 ##   If you change folder structure, CPCT_PATH should reflect this change.
 ##   This variable should always have the absolute path value.
 ##
-CPCT_PATH := /home/issalig/Descargas/brick_blaster/cpctelera/cpctelera#%%%CPCTELERA_PATH%%%
+CPCT_PATH := $(CURDIR)/cpctelera/cpctelera
 
 ####
 ## SECTION 1: Project configuration 
