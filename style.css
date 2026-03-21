@@ -343,8 +343,102 @@ rvm-player {
     100% { background-position: 200% 50%; }
 }
 
-/* Responsive UI */
+/* Responsive UI Improvements & Mobile Gamepad */
 @media (max-width: 768px) {
-    h1 { font-size: 2.5rem; }
-    .container { padding: 1rem; }
+    h1 { font-size: 2.2rem; letter-spacing: 0.2rem; }
+    .subtitle { font-size: 0.9rem; letter-spacing: 0.1rem; }
+    .container { padding: 1rem 0.5rem; gap: 1rem; }
+    .emulator-wrapper { 
+        padding: 0.5rem; 
+        border-radius: 12px;
+        margin-bottom: 0.5rem;
+    }
+    .info-panels { 
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 0 1rem;
+    }
+    .panel { padding: 1.5rem; border-radius: 15px; }
+    .credits-footer { margin-top: 1rem; gap: 1rem; padding: 1rem; font-size: 0.65rem; }
+    
+    /* Show mobile-controls on small screens */
+    .mobile-controls {
+        display: flex !important;
+    }
+}
+
+/* Mobile Controls Layer */
+.mobile-controls {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 140px;
+    background: linear-gradient(to top, rgba(15, 23, 42, 0.95), transparent);
+    z-index: 1000;
+    padding: 1rem 2rem 2rem 2rem;
+    box-sizing: border-box;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none; /* Allow touching items below if needed, though buttons will have pointer-events: auto */
+}
+
+.gamepad-group {
+    display: flex;
+    gap: 1rem;
+    pointer-events: auto;
+}
+
+.gamepad-btn {
+    width: 64px;
+    height: 64px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    cursor: pointer;
+    user-select: none;
+    touch-action: pointer-events;
+    transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.gamepad-btn svg {
+    width: 28px;
+    height: 28px;
+    fill: currentColor;
+}
+
+.gamepad-btn:active, .gamepad-btn.active {
+    background: var(--accent-color);
+    border-color: var(--secondary-color);
+    color: #000;
+    transform: translateY(3px) scale(0.95);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
+}
+
+.gamepad-btn.fire {
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 0, 234, 0.15);
+    border-color: rgba(255, 0, 234, 0.4);
+    color: var(--secondary-color);
+    font-weight: bold;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+}
+
+.gamepad-btn.fire:active, .gamepad-btn.fire.active {
+    background: var(--secondary-color);
+    color: #000;
+    box-shadow: 0 0 25px rgba(255, 0, 234, 0.7);
 }

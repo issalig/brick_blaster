@@ -18,6 +18,7 @@
             <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
             <button class="lang-btn" data-lang="fr" onclick="setLanguage('fr')">FR</button>
             <button class="lang-btn" data-lang="gr" onclick="setLanguage('gr')">GR</button>
+            <button class="lang-btn" data-lang="va" onclick="setLanguage('va')">VA</button>
         </div>
 
         <header>
@@ -100,6 +101,88 @@
             
             starfield.appendChild(star);
         }
+
+        // Mobile Gamepad Logic
+        function sendKey(code, type) {
+            const frame = document.getElementById('emulator-frame');
+            if (!frame || !frame.contentWindow) return;
+            
+            // Create event for the iframe's window
+            const event = new KeyboardEvent(type, {
+                keyCode: code,
+                which: code,
+                code: getKeyCodeString(code),
+                bubbles: true,
+                cancelable: true
+            });
+            
+            frame.contentWindow.dispatchEvent(event);
+            // Also try dispatching to the document inside the iframe
+            if (frame.contentWindow.document) {
+                frame.contentWindow.document.dispatchEvent(event);
+            }
+        }
+
+        function getKeyCodeString(code) {
+            switch(code) {
+                case 37: return 'ArrowLeft';
+                case 39: return 'ArrowRight';
+                case 32: return 'Space';
+                case 79: return 'KeyO';
+                case 80: return 'KeyP';
+                default: return '';
+            }
+        }
+
+        // Handle button states and repeat keys if necessary
+        // For games, we usually just need keydown on start and keyup on end
+        const activeKeys = new Set();
+        
+        function handleGamepadTouch(code, isStart) {
+            if (isStart) {
+                if (!activeKeys.has(code)) {
+                    activeKeys.add(code);
+                    sendKey(code, 'keydown');
+                }
+            } else {
+                if (activeKeys.has(code)) {
+                    activeKeys.delete(code);
+                    sendKey(code, 'keyup');
+                }
+            }
+        }
     </script>
+
+    <!-- Mobile Gamepad -->
+    <div class="mobile-controls" id="mobile-gamepad">
+        <div class="gamepad-group">
+            <button class="gamepad-btn" 
+                ontouchstart="handleGamepadTouch(37, true); this.classList.add('active'); event.preventDefault();" 
+                ontouchend="handleGamepadTouch(37, false); this.classList.remove('active'); event.preventDefault();"
+                onmousedown="handleGamepadTouch(37, true); this.classList.add('active');"
+                onmouseup="handleGamepadTouch(37, false); this.classList.remove('active');"
+                onmouseleave="handleGamepadTouch(37, false); this.classList.remove('active');">
+                <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+            </button>
+            <button class="gamepad-btn" 
+                ontouchstart="handleGamepadTouch(39, true); this.classList.add('active'); event.preventDefault();" 
+                ontouchend="handleGamepadTouch(39, false); this.classList.remove('active'); event.preventDefault();"
+                onmousedown="handleGamepadTouch(39, true); this.classList.add('active');"
+                onmouseup="handleGamepadTouch(39, false); this.classList.remove('active');"
+                onmouseleave="handleGamepadTouch(39, false); this.classList.remove('active');">
+                <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </button>
+        </div>
+        <div class="gamepad-group">
+            <button class="gamepad-btn fire" 
+                ontouchstart="handleGamepadTouch(32, true); this.classList.add('active'); event.preventDefault();" 
+                ontouchend="handleGamepadTouch(32, false); this.classList.remove('active'); event.preventDefault();"
+                onmousedown="handleGamepadTouch(32, true); this.classList.add('active');"
+                onmouseup="handleGamepadTouch(32, false); this.classList.remove('active');"
+                onmouseleave="handleGamepadTouch(32, false); this.classList.remove('active');">
+                FIRE
+            </button>
+        </div>
+    </div>
 </body>
 </html>

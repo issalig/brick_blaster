@@ -83,13 +83,35 @@ const translations = {
         story2: "Το όπλο σου: μια σιδερώστρα και μια πυρηνική μπάλα τένις. Πάρε πίσω το σκούτερ σου και γύρνα για φαγητό!",
         about: "ΣΧΕΤΙΚΑ",
         aboutText: "Καλώς ήρθατε στο <strong>Brick Blaster</strong>, ένα κλώνο του Arkanoid για τον Amstrad CPC. Οδηγήστε το σκάφος σας, συλλέξτε αναβαθμίσεις και καταστρέψτε τα τούβλα.",
-        creditsCode: "ΚΩΔΙΚΑΣ & GFX: ISSALIG",
+        creditsCode: "ΚΩΔΙΚΑΣ & GFX: ΙSSALIG",
         creditsMusic: "ΜΟΥΣΙΚΗ: ULTRASYD",
         creditsPowered: "ΜΕ ΤΗΝ ΥΠΟΣΤΗΡΙΞΗ ΤΟΥ CPCTELERA",
         creditsYear: "2026",
         downloadTitle: "ΛΗΨΗ DSK",
         downloadText: "Παίξτε στον αγαπημένο σας εξομοιωτή.",
         downloadBtn: "ΛΗΨΗ .DSK"
+    },
+    va: {
+        title: "Brick Blaster",
+        subtitle: "MISSIÓ DE RECUPERACIÓ DE LA VESPA",
+        controls: "CONTROLS",
+        moveLeft: "MOURE ESQUERRA",
+        moveRight: "MOURE DRETA",
+        fire: "DISPARO",
+        pause: "PAUSA",
+        music: "MÚSICA",
+        storyTitle: "HISTÒRIA",
+        story1: "Era un matí qualsevol. Anaves a comprar el pa, però <strong>Marià el Marcià</strong> et va robar la Vespa. Ara estàs atrapat en una <strong>presó espacial de rajoles</strong>.",
+        story2: "La teua arma: una taula de planxar i una pilota de tenis nuclear. ¡Recupera la moto i torna a temps per a dinar!",
+        about: "SOBRE EL JUEGO",
+        aboutText: "Benvingut a <strong>Brick Blaster</strong>, un clon d'Arkanoid d'alt octanatge per a Amstrad CPC. Navega per la teua nau, arreplega potenciadors i destruïx nivells de rajoles geomètriques.",
+        creditsCode: "CODI I GFX: ISSALIG",
+        creditsMusic: "MÚSICA: ULTRASYD",
+        creditsPowered: "POTENCIAT POR CPCTELERA",
+        creditsYear: "2026",
+        downloadTitle: "DESCARREGAR DSK",
+        downloadText: "Porta't el joc al teu emulador favorit.",
+        downloadBtn: "DESCARREGAR .DSK"
     }
 };
 
@@ -117,7 +139,7 @@ function setLanguage(lang) {
     // Update download link
     const downloadLink = document.getElementById('download-link');
     if (downloadLink) {
-        downloadLink.href = `assets/brickblaster_${lang}.dsk`;
+        downloadLink.href = `assets/brickb_${lang}.dsk`;
     }
 
     // Update iframe source to reload the emulator with the new language
