@@ -63,9 +63,7 @@ static const u8 s_va_STR_CREDITS_POWERED[] = "SUPERPODERS: CPCTELERA";
 static const u8 s_va_STR_GO_TO_THE_DOOR[] = "ANEM-NOS-EN";
 static const u8 s_va_STR_DEMO[] = "DEMO";
 static const u8 s_va_STR_DIFFICULTY[] = "DIFICULTAT: ";
-static const u8 s_va_STR_EASY[] = "FACIL";
-static const u8 s_va_STR_NORMAL[] = "NORMAL";
-static const u8 s_va_STR_HARD[] = "DIFICIL";
+
 
 const u8* const lang_va[STR_COUNT] = {
     s_va_STR_GAME_MODE, s_va_STR_1_PLAYER, s_va_STR_2_PLAYERS, s_va_STR_PRESS_H_HELP, s_va_STR_CONTROLS, s_va_STR_KEY_LEFT, s_va_STR_MOVE_LEFT, s_va_STR_KEY_RIGHT, s_va_STR_MOVE_RIGHT,
@@ -75,6 +73,6 @@ const u8* const lang_va[STR_COUNT] = {
     s_va_STR_NOW_GO_BREAD_2, s_va_STR_EAT_SANDWICH, s_va_STR_SQUID_BOCATA, s_va_STR_GAME_OVER, s_va_STR_NO_MOTO_NO_EAT, s_va_STR_GAME_OVER_SUB2, s_va_STR_STORY_1, s_va_STR_STORY_2, s_va_STR_STORY_3, s_va_STR_STORY_4, s_va_STR_STORY_5,
     s_va_STR_STORY_6, s_va_STR_STORY_7, s_va_STR_STORY_WIN_1, s_va_STR_STORY_WIN_2, s_va_STR_PLAYER_START, s_va_STR_LEVEL,
     s_va_STR_CREDITS_CODE, s_va_STR_CREDITS_MUSIC, s_va_STR_CREDITS_POWERED, s_va_STR_GO_TO_THE_DOOR, s_va_STR_DEMO,
-    s_va_STR_DIFFICULTY, s_va_STR_EASY, s_va_STR_NORMAL, s_va_STR_HARD
+    s_va_STR_DIFFICULTY
 };
 #endif

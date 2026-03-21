@@ -61,9 +61,6 @@ typedef enum {
     STR_GO_TO_THE_DOOR,
     STR_DEMO,
     STR_DIFFICULTY,
-    STR_EASY,
-    STR_NORMAL,
-    STR_HARD,
     STR_COUNT
 } string_id_t;
 
@@ -82,8 +79,11 @@ extern const u8* const lang_gr[STR_COUNT];
 #ifdef LANG_VA
 extern const u8* const lang_va[STR_COUNT];
 #endif
+#ifdef LANG_PT
+extern const u8* const lang_pt[STR_COUNT];
+#endif
 
-extern const u8** const lang_strings[5];
+extern const u8** const lang_strings[6];
 extern u8 current_lang;
 
 #define GET_STR(id) lang_strings[current_lang][id]

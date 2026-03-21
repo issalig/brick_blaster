@@ -25,7 +25,7 @@
   - **F** (Fireball): Ball pierces through bricks without bouncing.
 - **Autonomous Demo Mode**: Watch the game play itself with fully automated AI-driven paddle and firing.
 - **Selectable Difficulty**: Choose between Easy, Normal, and Hard modes to suit your skill level.
-- **Multi-language Support**: Fully localized in English, Spanish, French, Greek, and Valencian.
+- **Multi-language Support**: Fully localized in English, Spanish, French, Greek, Valencian, and Portuguese.
 - **Web Portal with Mobile Controls**: Includes a web-based emulator with a built-in virtual gamepad for touch devices.
 
 ## Controls
@@ -73,7 +73,7 @@ The project includes a modern web-based emulator portal located in the `web/` di
 ### Key Web Features:
 - **Integrated Emulator**: Powered by Retro Virtual Machine (RVM) web engine.
 - **Mobile Friendly**: Features a virtual gamepad that automatically appears on smartphones and tablets.
-- **Dynamic Localization**: The web interface supports English, Spanish, French, Greek, and Valencian. 
+- **Dynamic Localization**: The web interface supports English, Spanish, French, Greek, Valencian, and Portuguese. 
 - **Automatic Disk Loading**: When a language is selected on the web page, the emulator automatically "inserts" the corresponding localized disk image.
 - **Vibrant UI**: Responsive design with CSS animations and localized metadata.
 

@@ -144,9 +144,9 @@ Brick Blaster bypasses the Amstrad CPC's standard firmware font to gain full con
     -   **Normal**: 1:1 mapping.
     -   **Large**: 2x horizontal scaling.
     -   **X-Large**: 2x horizontal and 2x vertical scaling (used for the Intro Title).
--   **Localization Hooks**: The `get_sprite_index` function includes manual UTF-8 decoding to support special characters across languages (e.g., Spanish `¡`, `ñ`, and the Greek alphabet).
+-   **Localization Hooks**: The `get_sprite_index` function includes manual UTF-8 decoding to support special characters across languages (e.g., Spanish `¡`, `ñ`, and the Greek alphabet via Greeklish). Portuguese is supported using unaccented capital letters to maintain font compatibility.
 
-## 7. Memory Map (Verified)
+## 7. Memory Map
 
 | Address Range | Description |
 | :--- | :--- |

@@ -1,14 +1,13 @@
 ## Brick Blaster - Build System
 ## License: MIT License (c) 2026 ISSALIG
 ## ----------------------------------------------------
-LANGS := ES EN FR GR VA
+LANGS := ES EN FR GR VA PT
 .PHONY: all_languages $(LANGS)
 
 all_languages: $(LANGS)
 
 $(LANGS):
 	$(MAKE) LANG=$@
-	@cp dist/brickb.dsk dist/brickb_`echo $@ | tr '[:upper:]' '[:lower:]'`.dsk
 ##-----------------------------LICENSE NOTICE------------------------------------
 ##  This file is part of CPCtelera: An Amstrad CPC Game Engine 
 ##  Copyright (C) 2015 ronaldo / Fremos / Cheesetea / ByteRealms (@FranGallegoBR)
@@ -54,6 +53,9 @@ else ifeq ($(LANG), GR)
 else ifeq ($(LANG), VA)
     LANG_SUFFIX := va
     LANG_MACRO   := -DLANG_VA
+else ifeq ($(LANG), PT)
+    LANG_SUFFIX := pt
+    LANG_MACRO   := -DLANG_PT
 else
     # Default to Spanish
     LANG_SUFFIX := es
@@ -122,8 +124,6 @@ $(OBJDSKINCSDIR)/DISC.BAS.$(DSKINC_EXT): dsk_files/DISC.BAS $(DSK)
 	@touch $@
 	@$(call PRINT,$(DSK),"Added '$<' as BASIC")
 	@cp $(DSK) web/assets/brickb_$(LANG_SUFFIX).dsk
-	@cp $(DSK) dist/brickb_$(LANG_SUFFIX).dsk
-	@cp $(CDT) dist/brickb_$(LANG_SUFFIX).cdt 2>/dev/null || true
 
 # Generate Base64 version of the disk for the web portal
 $(WEB_DISK_JS): $(DSK)
