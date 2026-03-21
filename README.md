@@ -9,24 +9,25 @@
 - **Classic Arcade Action**: Smoothed paddle movement and refined ball physics for an authentic retro feel.
 - **10 Challenging Levels**: Including a final boss with custom AI and unique defeat sequence.
 - **Dynamic Power-ups**:
-  - **L** (Enlarge): Increases paddle size.
+  - **L** (Laser): Fire at bricks (Space to shoot).
   - **S** (Slow): Reduces ball speed.
   - **C** (Catch): Sticky paddle (Space to launch).
-  - **P** (Laser): Fire at bricks (Space to shoot).
-  - **B** (Extra Life): Directly adds 1 live.
-  - **E** (Extra Ball): Spawns 3 balls at once.
-  - **A** (Autopilot): Paddle automatically follows the ball for 5 seconds.
-  - **F** (Fireball): Ball pierces through destructible bricks without bouncing.
-  - **D** (Double Score): Temporarily doubles points gained.
-  - **T** (Tiny): Shrinks paddle (Trap).
+  - **P** (Player): Extra life (Adds 1 life).
+  - **B** (Break): Opens the exit warp door.
+  - **E** (Enlarge): Increases paddle size.
+  - **M** (Multi): Spawns 3 balls at once.
+  - **I** (Ice): Freezes the paddle for 3 seconds (Trap).
+  - **U** (Ultra-Magnet): Paddle repels the ball (Trap).
+  - **A** (Autopilot): Paddle automatically follows the ball for 6 seconds.
+  - **D** (Drunk): Inverts controls (Trap).
   - **V** (Velocity): Speeds up the ball (Trap).
+  - **T** (Tiny): Shrinks paddle (Trap).
   - **G** (Gravity): Increases vertical ball speed (Trap).
-  - **I** (Invisibility): Balls and paddle become hard to see (Trap).
-  - **U** (Upside Down): Inverts controls (Trap).
+  - **F** (Fireball): Ball pierces through bricks without bouncing.
 - **Autonomous Demo Mode**: Watch the game play itself with fully automated AI-driven paddle and firing.
 - **Selectable Difficulty**: Choose between Easy, Normal, and Hard modes to suit your skill level.
-- **Multi-language Support**: Fully localized in English, Spanish, French, and Greek.
-- **Web Portal Integration**: Includes a web-based emulator to play directly in the browser.
+- **Multi-language Support**: Fully localized in English, Spanish, French, Greek, and Valencian.
+- **Web Portal with Mobile Controls**: Includes a web-based emulator with a built-in virtual gamepad for touch devices.
 
 ## Controls
 
@@ -40,6 +41,7 @@
 | **0** | Enter Autonomous Demo Mode (from Menu) |
 | **3** | Cycle Difficulty Levels (from Menu) |
 | **H** | View Help / Power-ups |
+| **Touch Buttons** | Move Left/Right and Fire (Web/Mobile only) |
 
 ## How to Build
 
@@ -61,8 +63,8 @@ make all_languages
 ```
 
 The resulting files will be generated in the ![dist/](dist/) directory:
-- `brickblaster_[lang].dsk`: Amstrad CPC Disk Image.
-- `brickblaster_[lang].cdt`: Amstrad CPC Cassette Image.
+- `brickb_[lang].dsk`: Amstrad CPC Disk Image.
+- `brickb_[lang].cdt`: Amstrad CPC Cassette Image.
 
 **These are the files you can use to play the game on a real Amstrad CPC or on an emulator.**
 
@@ -72,7 +74,8 @@ The project includes a modern web-based emulator portal located in the `web/` di
 
 ### Key Web Features:
 - **Integrated Emulator**: Powered by Retro Virtual Machine (RVM) web engine.
-- **Dynamic Localization**: The web interface supports English, Spanish, French, and Greek. 
+- **Mobile Friendly**: Features a virtual gamepad that automatically appears on smartphones and tablets.
+- **Dynamic Localization**: The web interface supports English, Spanish, French, Greek, and Valencian. 
 - **Automatic Disk Loading**: When a language is selected on the web page, the emulator automatically "inserts" the corresponding localized disk image.
 - **Vibrant UI**: Responsive design with CSS animations and localized metadata.
 
@@ -98,8 +101,8 @@ The web portal can be accessed in three ways:
 
 ## Credits
 
-- **Code & GFX**: ISSALIG
-- **Music**: ULTRASYD
+- **Code & GFX**: issalig
+- **Music**: ultrasyd
 - **Framework**: Powered by CPCtelera
 - **Special Thanks**: The Amstrad CPC development community.
 

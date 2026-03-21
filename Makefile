@@ -1,13 +1,14 @@
 ## Brick Blaster - Build System
 ## License: MIT License (c) 2026 ISSALIG
 ## ----------------------------------------------------
-LANGS := ES EN FR GR
+LANGS := ES EN FR GR VA
 .PHONY: all_languages $(LANGS)
 
 all_languages: $(LANGS)
 
 $(LANGS):
 	$(MAKE) LANG=$@
+	@cp dist/brickb.dsk dist/brickb_`echo $@ | tr '[:upper:]' '[:lower:]'`.dsk
 ##-----------------------------LICENSE NOTICE------------------------------------
 ##  This file is part of CPCtelera: An Amstrad CPC Game Engine 
 ##  Copyright (C) 2015 ronaldo / Fremos / Cheesetea / ByteRealms (@FranGallegoBR)
@@ -50,13 +51,16 @@ else ifeq ($(LANG), FR)
 else ifeq ($(LANG), GR)
     LANG_SUFFIX := gr
     LANG_MACRO   := -DLANG_GR
+else ifeq ($(LANG), VA)
+    LANG_SUFFIX := va
+    LANG_MACRO   := -DLANG_VA
 else
     # Default to Spanish
     LANG_SUFFIX := es
     LANG_MACRO   := -DLANG_ES
 endif
 
-PROJNAME := brickblaster_$(LANG_SUFFIX)
+PROJNAME := brickb
 
 # Language-specific build detection to force rebuilds when LANG changes
 LANG_CONFIG := obj/lang.config
@@ -108,18 +112,6 @@ DSKINCOBJFILES += $(OBJDSKINCSDIR)/loading.scr.$(DSKINC_EXT)
 # Exclude files with custom rules from standard inclusion to avoid warnings
 DSKINCSRCFILES := $(filter-out dsk_files/DISC.BAS dsk_files/loading.scr,$(DSKINCSRCFILES))
 
-# # Convert BASIC to tokenized binary (without AMSDOS header)
-# dsk_files/DISC.bin: dsk_files/DISC.BAS tools/bas2bin.py
-# 	@python3 tools/bas2bin.py dsk_files/DISC.BAS dsk_files/DISC.bin
-
-# # Create CDT loader with tokenized binary
-# $(CDT): dsk_files/DISC.bin dsk_files/loading.scr $(BINFILE)
-# 	@$(call PRINT,$(CDT),"Creating Multi-file Cassette File $@")
-# 	# -n -F 0  -r "CAS.BAS" CAS.BAS brickblaster.cdt
-# 	@$(2CDT) -n -F 0 -r "DISC" dsk_files/DISC.bin $@
-# 	@$(2CDT) -F 2 -L 0xC000 -r "loading.scr" dsk_files/loading.scr $@
-# 	@$(2CDT) -F 2 -L 0x0500 -X 0x1C00 -r "brickbla.bin" $(BINFILE) $@
-
 # Custom rules for dsk_files that need special flags (Shadowing standard rules)
 # We use engine macros to avoid explicit iDSK calls where possible
 $(OBJDSKINCSDIR)/loading.scr.$(DSKINC_EXT): dsk_files/loading.scr $(DSK)
@@ -129,7 +121,9 @@ $(OBJDSKINCSDIR)/DISC.BAS.$(DSKINC_EXT): dsk_files/DISC.BAS $(DSK)
 	@$(IDSK) $(DSK) -i $< -t 0 -f &> /dev/null
 	@touch $@
 	@$(call PRINT,$(DSK),"Added '$<' as BASIC")
-	@cp $(DSK) web/assets/brickblaster_$(LANG_SUFFIX).dsk
+	@cp $(DSK) web/assets/brickb_$(LANG_SUFFIX).dsk
+	@cp $(DSK) dist/brickb_$(LANG_SUFFIX).dsk
+	@cp $(CDT) dist/brickb_$(LANG_SUFFIX).cdt 2>/dev/null || true
 
 # Generate Base64 version of the disk for the web portal
 $(WEB_DISK_JS): $(DSK)

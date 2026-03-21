@@ -18,12 +18,22 @@ For this reason, some statements may not be entirely accurate or correct. If you
 The game is designed around several key structures defined in `src/main.c`:
 
 ### Physics & Entities
--   **`ball_t`**: Uses 10.6 Fixed Point math for smooth movement.
-    -   `fx`, `fy`: Sub-pixel position.
-    -   `dx`, `dy`: Velocity components derived from `dir` and `speed`.
+-   **`ball_t`**: Uses 10.6 Fixed Point math for smooth sub-pixel movement.
+    -   `x`, `y`: Current screen coordinates (byte-aligned X, scanline Y).
+    -   `old_x`, `old_y`: Previous coordinates used for Delta Erasing.
+    -   `fpos_x`, `fpos_y`: Internal 16-bit fixed-point positions.
+    -   `dir_x`, `dir_y`: Direction vector components (normalized to `FP_SCALE`).
+    -   `speed`: Scalar speed value.
+    -   `speed_x`, `speed_y`: Precomputed velocity components (`speed_x = (dir_x * speed) >> 6`).
     -   `active`: Flag for multiball handling.
 -   **`paddle_t`**: Manages position and variable widths (Normal, Wide, Tiny).
--   **`boss_t`**: A state-machine based structure for the final encounter.
+    -   `x`, `y`: Current screen coordinates.
+    -   `old_x`, `old_y`: Previous coordinates for Delta Erasure.
+    -   `width`, `height`: Current dimensions.
+    -   `old_width`: Used to detect size changes for full background restoration.
+-   **`boss_t`**: A state-machine based structure for the final encounter, using fixed-point physics similar to the ball.
+    -   `fpos_x`, `fpos_y`, `speed_x`, `speed_y`: 10.6 Fixed-point physics state.
+    -   `x`, `y`, `old_x`, `old_y`: Screen and previous coordinates.
     -   `state`: 0=Sleeping, 1=Attacking, 2=Exploding.
     -   `health`: Hit point tracking.
 -   **`demo_mode`**: A global flag that enables autonomous gameplay.
@@ -32,8 +42,9 @@ The game is designed around several key structures defined in `src/main.c`:
     -   **Auto-Launch**: Launches the ball after a 2-second delay if it's held.
     -   **Auto-Exit**: Detects when the exit door is open and steers the paddle toward it.
 -   **`enemy_t`**: Represents flying hazards that spawn periodically.
+    -   `x`, `y`, `old_x`, `old_y`: Screen and previous coordinates for rendering.
     -   `type`: Determines the sprite and movement pattern.
-    -   `dx`: Horizontal drift direction.
+    -   `speed_x`: Horizontal drift speed.
     -   **Interaction**: Enemies serve as moving obstacles and scoring targets. When hit by a ball, they reflect it; when they touch the paddle, they are destroyed and award bonus points (**500 HUD pts**) without costing a life.
 
 ### Brick System & Level Encoding
@@ -56,9 +67,9 @@ The game features three selectable difficulty levels (Easy, Normal, Hard) that c
 
 | Difficulty | Increment per 2 levels | Max Speed Offset |
 | :--- | :--- | :--- |
-| **Easy (1)** | +8 units | +80 units |
-| **Normal (2)** | +15 units | +150 units |
-| **Hard (3)** | +20 units | +200 units |
+| **Easy (1)** | +8 units | +150 units |
+| **Normal (2)** | +15 | +150 units |
+| **Hard (3)** | +20 | +150 units |
 
 - **Formula**: `INITIAL_BALL_SPEED + (current_level / 2) * increment`.
 - **Key Logic**: The `3` key cycles through difficulty levels in the main menu. To prevent animation stutter, it uses optimized **partial redrawing**, refreshing only the difficulty text line instead of the entire screen.
@@ -88,6 +99,16 @@ To avoid slow 16-bit multiplications and divisions on the Z80, the game uses a *
 -   Rendering coordinates are derived using `FP_INT(pos)` (right-shift by 6).
 -   Velocities are precomputed using `FP_VEL` macros to avoid runtime overhead.
 
+### Ball Movement Logic (`move_ball`)
+The `move_ball` function handles the core displacement and basic environmental collisions:
+1.  **Integration**: Fixed-point positions are updated: `fpos_x += speed_x` and `fpos_y += speed_y`.
+2.  **Special Effects**: If the **Magnet Trap** is active, the ball's `fpos_x` is nudged away from the paddle's center when in close proximity.
+3.  **Coordinate Conversion**: Internal positions are converted to screen coordinates via `FP_INT` (right-shift by 6).
+4.  **Boundary Bouncing**:
+    -   If a wall or the ceiling is hit (checked against `WALL_XXX_FP` thresholds), the corresponding direction component (`dir_x` or `dir_y`) is negated.
+    -   The velocity components `speed_x` and `speed_y` are then recomputed using `FP_VEL` to ensure the trajectory is consistent with the current speed.
+5.  **Clamping**: Final screen coordinates are clamped to the play area boundaries to prevent visual artifacts or HUD overwrites.
+
 ### Collision Engine
 1.  **Wall Bouncing**: Hardcoded boundaries based on the level frame.
 2.  **Paddle Reflection**: The ball's horizontal direction is influenced by *where* it hits the paddle (segmented bounce angles).
@@ -108,7 +129,7 @@ The Amstrad CPC lacks hardware scrolling and a standard double buffer in this pr
 
 ## 5. Localization System
 
-The game supports English, Spanish, French, and Greek via a specialized header-and-source strategy:
+The game supports English, Spanish, French, Greek, and Valencian via a specialized header-and-source strategy:
 -   **`lang.h`**: Defines a `string_id_t` enum shared across the logic.
 -   **`lang_xx.c`**: Contains the actual constant strings for each language.
 -   **`lang_strings`**: A global pointer array indexed by `current_lang` used by the `GET_STR(id)` macro for O(1) string retrieval.
@@ -123,15 +144,15 @@ Brick Blaster bypasses the Amstrad CPC's standard firmware font to gain full con
     -   **Normal**: 1:1 mapping.
     -   **Large**: 2x horizontal scaling.
     -   **X-Large**: 2x horizontal and 2x vertical scaling (used for the Intro Title).
--   **Localization Hooks**: The `getSpriteIndex` function includes manual UTF-8 decoding to support special characters across languages (e.g., Spanish `¡`, `ñ`, and the Greek alphabet).
+-   **Localization Hooks**: The `get_sprite_index` function includes manual UTF-8 decoding to support special characters across languages (e.g., Spanish `¡`, `ñ`, and the Greek alphabet).
 
 ## 7. Memory Map (Verified)
 
 | Address Range | Description |
 | :--- | :--- |
-| `&0500 - &1BFF` | Music Song Data (Arkos Tracker) |
-| `&1C00 - &954C` | Game Code, Compiled Sprites, and Font Data |
-| `&954D - &BFFF` | Global Variables & Background Row Cache |
+| `&0500 - &1ABF` | Music Song Data (Arkos Tracker) |
+| `&1C00 - &94D1` | Game Code, Compiled Sprites, and Font Data |
+| `&94D2 - &BFFF` | Global Variables & Background Row Cache |
 | `&C000 - &FFFF` | Video RAM (Mode 0) |
 
 ## 8. Arcade Tricks & Optimizations
@@ -150,13 +171,19 @@ This automated pipeline allows for rapid iteration of graphics (like the animate
 ### O(1) Language Switching
 The localization system avoids string searching or heavy branching. Instead, it uses a global array of pointers (`lang_strings`). Switching the entire game's language is as simple as updating a single `current_lang` index, making `GET_STR` operations nearly instantaneous.
 
+### Web Mobile Controls (Virtual Gamepad)
+To make the game playable on mobile devices, the web portal includes a virtual gamepad layer.
+- **Event Bridging**: Circular on-screen buttons capture `touchstart` events and translate them into a sequence of `keydown`/`keyup` events.
+- **Iframe Messaging**: Since the emulator runs in an isolated iframe, events are dispatched directly to the iframe's `contentWindow`, ensuring the emulation engine reacts as if a physical keyboard was used.
+- **Split Layout**: Controls are split (Movement on left, Fire on right) for an ergonomic mobile experience.
+
 ### Web CORS Bypass (Base64 Disks)
 The web emulator (RVM) bypasses modern browser security (CORS) which normally blocks loading local files via `file://`. We achieve this by converting the binary `.dsk` images into Base64-encoded strings inside `.js` files. This makes the game truly "portable" and playable from a local folder without a web server.
 
 ### Pseudo-Parallax Starfield
 Used in the Intro, Menu, and Game Over screens, the starfield provides a sense of depth and motion:
 -   **Triple-Layer Depth**: 40 stars are split into three layers with different speeds (1, 2, and 3 pixels per frame) and colors (Blue, Cyan, White) to simulate parallax.
--   **Non-Destructive Drawing**: To prevent stars from "eating" through the menu text, the `updateStarfield` logic checks if a destination pixel is black (`0x00`) before drawing.
+-   **Non-Destructive Drawing**: To prevent stars from "eating" through the menu text, the `update_starfield` logic checks if a destination pixel is black (`0x00`) before drawing.
 -   **LFSR Randomization**: When a star reaches the bottom, its X coordinate is reset using the global `rand8()` RNG to ensure a non-repeating pattern.
 
 ## 9. Size Optimizations (Compilation Flags)
@@ -186,7 +213,7 @@ The game's audio is powered by the **Arkos Tracker (AKP)** player, integrated wi
     1.  **Environment Setup**: Sets `MODE 0` and `BORDER 0`.
     2.  **Palette Initialization**: Reads and applies a 16-color palette (provided by `img2scr.py`) using `INK` commands to match the loading screen's colors.
     3.  **Visual Feedback**: Loads `loading.scr` directly into Video RAM (`&C000`) to display the title/loading screen.
-    4.  **Execution**: Launches the main game binary (`RUN"!brickbla.bin"`) to start the compiled engine.
+    4.  **Execution**: Launches the main game binary (`RUN"!brickb.bin"`) to start the compiled engine.
 
 ## 11. Technical Refinements & Fixes
 
@@ -198,6 +225,27 @@ Menu interactions (like switching difficulty) use **Delta Redrawing**. Instead o
 
 ### Automated Exit Transition
 In Demo and Autopilot modes, the paddle AI is enhanced with a **Door Detection** state. Once `door_open` is true, the paddle ignores the ball and steers directly towards the exit threshold (`WALL_RIGHT_BYTES`), facilitating a hands-free transition to the next level.
+
+## 12. Main Game Loop
+
+The game's execution flow is managed by a two-tiered loop structure in `main.c` that separates high-level menu navigation from low-level frame updates.
+
+### Outer Loop (Game Lifecycle)
+The primary `while(1)` in `main()` manages the transition between major game states:
+1.  **Screens**: Intro (Animated) -> Story -> Level Selection.
+2.  **Initialization**: Resets scores, lives, and triggers `init_game()`.
+3.  **Session Loop**: Runs the gameplay until a termination condition is met.
+4.  **Conclusion**: Displays either `Victory` or `Game Over` and returns to the Intro.
+
+### Inner Loop (Frame-by-Frame Gameplay)
+The core gameplay runs within an efficient `while(lives > 0 && !game_won)` loop:
+1.  **Input Processing**: `cpct_scanKeyboard_f()` and `handle_game_toggles()` for music/pause.
+2.  **State Updates**: (Only if not paused)
+    -   `update_paddle()`: Physics and boundaries.
+    -   `update_ball()`: Fixed-point motion and collisions.
+    -   `update_extra_balls()`, `update_drop()`, `update_lasers()`, `update_enemies()`: Entity management.
+    -   `update_boss()`: Boss state machine (if active).
+3.  **Rendering**: `draw_game()` synchronizes with VSYNC and performs the Delta Redraw strategy.
 
 ---
 *Brick Blaster Architecture - Documented for the future.* 🕹️🧠

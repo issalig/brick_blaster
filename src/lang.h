@@ -27,14 +27,13 @@ typedef enum {
     STR_P_DESC,
     STR_B_DESC,
     STR_E_DESC,
-    STR_A_DESC,
     STR_M_DESC,
+    STR_I_DESC,
+    STR_U_DESC,
+    STR_A_DESC,
     STR_D_DESC,
     STR_V_DESC,
     STR_T_DESC,
-    STR_G_DESC,
-    STR_I_DESC,
-    STR_U_DESC,
     STR_F_DESC,
     STR_CONGRATS,
     STR_RECOVERED_MOTO,
@@ -44,6 +43,7 @@ typedef enum {
     STR_SQUID_BOCATA,
     STR_GAME_OVER,
     STR_NO_MOTO_NO_EAT,
+    STR_GAME_OVER_SUB2,
     STR_STORY_1,
     STR_STORY_2,
     STR_STORY_3,
@@ -79,8 +79,11 @@ extern const u8* const lang_fr[STR_COUNT];
 #ifdef LANG_GR
 extern const u8* const lang_gr[STR_COUNT];
 #endif
+#ifdef LANG_VA
+extern const u8* const lang_va[STR_COUNT];
+#endif
 
-extern const u8** const lang_strings[4];
+extern const u8** const lang_strings[5];
 extern u8 current_lang;
 
 #define GET_STR(id) lang_strings[current_lang][id]

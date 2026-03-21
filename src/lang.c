@@ -10,9 +10,13 @@ u8 current_lang = 0;
 #define DEFAULT_LANG lang_fr
 #elif defined(LANG_GR)
 #define DEFAULT_LANG lang_gr
+#elif defined(LANG_VA)
+#define DEFAULT_LANG lang_va
+#else
+#define DEFAULT_LANG lang_es
 #endif
 
-const u8** const lang_strings[4] = {
+const u8** const lang_strings[5] = {
 #ifdef LANG_ES
     lang_es,
 #else
@@ -30,6 +34,11 @@ const u8** const lang_strings[4] = {
 #endif
 #ifdef LANG_GR
     lang_gr,
+#else
+    DEFAULT_LANG,
+#endif
+#ifdef LANG_VA
+    lang_va,
 #else
     DEFAULT_LANG,
 #endif

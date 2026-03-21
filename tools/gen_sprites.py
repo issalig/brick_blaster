@@ -145,25 +145,25 @@ bg_pattern_1 = [
 ]
 
 bg_pattern_0 = [
-    "bbb...Bb",
-    "bb..BBBb",
-    "b.BBBBBB",
+    "bbbcccBb",
+    "bbccBBBb",
+    "bcBBBBBB",
     "BBBBbbbb",
     "bbbbbbbb",
-    "..bbbbbb",
-    "BB..bbbB",
-    "BBBB..bB"
+    "ccbbbbbb",
+    "BBccbbbB",
+    "BBBBccbB"
 ]
 
 bg_pattern_4 = [ # Diamonds
-    "...BB...",
-    "..BBBB..",
-    ".BBBBBB.",
+    "cbbBBbbc",
+    "bbBBBBbb",
+    "bBBBBBBb",
     "BBBBBBBB",
     "BBBBBBBB",
-    ".BBBBBB.",
-    "..BBBB..",
-    "...BB..."
+    "bBBBBBBb",
+    "bbBBBBbb",
+    "cbbBBbbc"
 ]
 
 bg_pattern_5 = [ # Faceted cube
@@ -395,22 +395,23 @@ def create_capsule(letter_lines, color, letter_color='W'):
 # E - Enlarge (Bright Cyan 'C' / HW_BRIGHT_CYAN)
 # M - Disrupt/Multi (Magenta 'M')
 capsule_sprites_defs = [
-    create_capsule(["W...", "W...", "W...", "W...", "W...", "W...", "WWWW"], "R"), # L (Laser = Red)
-    create_capsule([".WW.", "W..W", "W...", ".WW.", "...W", "W..W", ".WW."], "Y", "."), # S (Slow = Yellow)
-    create_capsule([".WW.", "W..W", "W...", "W...", "W...", "W..W", ".WW."], "G", "."), # C (Catch = Green)
-    create_capsule(["WWW.", "W..W", "W..W", "WWW.", "W...", "W...", "W..."], "B"), # P (Player/Life = Bright Blue)
-    create_capsule(["WWW.", "W..W", "W..W", "WWW.", "W..W", "W..W", "WWW."], "c", "."), # B (Break = Dark Cyan)
-    create_capsule(["WWWW", "W...", "W...", "WWW.", "W...", "W...", "WWWW"], "C", "."), # E (Enlarge = Bright Cyan)
-    create_capsule(["W..W", "WWWW", "W..W", "W..W", "W..W", "W..W", "W..W"], "M"), # M (Multi = Magenta)
-    create_capsule([".WWW", "..W.", "..W.", "..W.", "..W.", "..W.", ".WWW"], "B", "."), # I (Ice = Light Blue)
-    create_capsule(["W..W", "W..W", "W..W", "W..W", "W..W", "W..W", ".WW."], "m"),  # U (Magnet = Mauve/Purple)
-    create_capsule([".WW.", "W..W", "WWWW", "W..W", "W..W", "W..W", "W..W"], "G", "."), # A (Autopilot = Greenish/Cyan)
-    create_capsule(["WWW.", "W..W", "W..W", "W..W", "W..W", "W..W", "WWW."], "m", "."), # D (Drunk = Mauve)
-    create_capsule(["W..W", "W..W", "W..W", "W..W", "W..W", ".W.W", "..W."], "o", "."), # V (Fast = Orange)
-    create_capsule(["WWWW", ".W..", ".W..", ".W..", ".W..", ".W..", ".W.."], "r"), # T (Tiny = Dark Red)
-    create_capsule([".WW.", "W...", "W.WW", "W..W", "W..W", "W..W", ".WW."], "g", "."), # G (Gravity = Dark Green)
-    create_capsule(["WWWW", "W...", "WWW.", "W...", "W...", "W...", "W..."], "r", "."), # F (Fireball = Red)
+    create_capsule(["W...", "W...", "W...", "W...", "W...", "W...", "WWWW"], "R", "W"), # 1:  L (Laser/Aggressive)
+    create_capsule([".WW.", "W..W", "W...", ".WW.", "...W", "W..W", ".WW."], "Y", "."), # 2:  S (Slow)
+    create_capsule([".WW.", "W..W", "W...", "W...", "W...", "W..W", ".WW."], "G", "."), # 3:  C (Catch/Sticky)
+    create_capsule(["WWW.", "W..W", "W..W", "WWW.", "W...", "W...", "W..."], "W", "."), # 4:  P (Player/Life)
+    create_capsule(["WWW.", "W..W", "W..W", "WWW.", "W..W", "W..W", "WWW."], "c", "W"), # 5:  B (Break/Warp)
+    create_capsule(["WWWW", "W...", "W...", "WWW.", "W...", "W...", "WWWW"], "C", "."), # 6:  E (Expand)
+    create_capsule(["W..W", "WWWW", "W..W", "W..W", "W..W", "W..W", "W..W"], "M", "W"), # 7:  M (Multi)
+    create_capsule([".WWW", "..W.", "..W.", "..W.", "..W.", "..W.", ".WWW"], "B", "W"), # 8:  I (Ice)
+    create_capsule(["W..W", "W..W", "W..W", "W..W", "W..W", "W..W", ".WW."], "m", "W"), # 9:  U (Magnet)
+    create_capsule([".WW.", "W..W", "WWWW", "W..W", "W..W", "W..W", "W..W"], "G", "W"), # 10: A (Autopilot)
+    create_capsule(["WWW.", "W..W", "W..W", "W..W", "W..W", "W..W", "WWW."], "m", "W"), # 11: D (Drunk)
+    create_capsule(["W..W", "W..W", "W..W", "W..W", "W..W", ".W.W", "..W."], "o", "W"), # 12: V (Fast/Velocity)
+    create_capsule(["WWWW", ".W..", ".W..", ".W..", ".W..", ".W..", ".W.."], "r", "W"), # 13: T (Tiny)
+    create_capsule(["WWWW", "W...", "WWW.", "W...", "W...", "W...", "W..."], "r", "W"), # 14: F (Fireball)
 ]
+
+
 
 bg_patterns = [bg_pattern_0, bg_pattern_1, bg_pattern_4, bg_pattern_5]
 
@@ -576,7 +577,10 @@ raw_font = [
     [".w..", "....", ".w..", ".w..", ".w..", "...."],
     
     # Ñ (idx 43)
-    ["www.", "....", "ww..", "w.w.", "w.w.", "...."]
+    ["www.", "....", "ww..", "w.w.", "w.w.", "...."],
+
+    # Hyphen - (idx 44)
+    ["....", "....", "www.", "....", "....", "...."]
 ]
 
 # Custom Arcade Font LARGE (6x8 pixels = 3 bytes x 8 lines)
@@ -676,8 +680,11 @@ raw_font_large = [
 
     # Inverted Exclamation ¡ (idx 43)
     ["..ww..", "..ww..", "......", "..ww..", "..ww..", "..ww..", "..ww..", "......"],
-    # Ñ (idx 46)
-    ["..www.", "......", "w..w..", "ww.w..", "w.ww..", "w..w..", "w..w..", "......"]
+    # Ñ (idx 43 - Corrected comment)
+    ["..www.", "......", "w..w..", "ww.w..", "w.ww..", "w..w..", "w..w..", "......"],
+
+    # Hyphen - (idx 44)
+    ["......", "......", "......", "wwwww.", "......", "......", "......", "......"]
 ]
 
 # We generate two colored sets: White ('W') and Red ('R'), 

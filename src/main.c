@@ -1,16 +1,16 @@
 /**
  * Brick Blaster (Arkanoid Clone)
  * ----------------------------------------------------
- * @author  ISSALIG
+ * @author  issalig
  * 
  * Target:  Amstrad CPC 464/6128 (Mode 0)
  * Library: CPCtelera 1.7+
  * 
- * License: MIT License (c) 2026 ISSALIG
+ * License: MIT License (c) 2026 issalig
  * ----------------------------------------------------
  */
 
-#include <cpctelera.h>
+#include <cpctelera.h>      // Astonishingly fast CPC library
 #include "music/music.h"    // Got from Arkos Tracker examples, thanks ULTRASYD.
 #include "lang.h"           // Localization
 #include "assets/sprites.h" // Awesome sprites
@@ -118,8 +118,7 @@
 #define BPOWER_DRUNK      11  // D - Mauve (Trap: Inverted Controls)
 #define BPOWER_FAST       12  // V - Orange (Trap: Fast Ball)
 #define BPOWER_TINY       13  // T - Dark Red (Trap: Tiny Paddle)
-#define BPOWER_GRAVITY    14  // G - Dark Green (Trap: Gravity)
-#define BPOWER_FIREBALL   15  // F - Red (Benefit: Pierce Bricks)
+#define BPOWER_FIREBALL   14  // F - Red (Benefit: Pierce Bricks)
 
 // Extra balls for multiball power-up
 #define MAX_EXTRA_BALLS   2
@@ -146,12 +145,12 @@ typedef struct {
     u8 old_x, old_y;
     
     // Fixed point internal positions
-    i16 fx, fy;   
+    i16 fpos_x, fpos_y;   
     
     // Direction and speed
     i16 dir_x, dir_y; // Normalized direction vector (scaled by FP_SCALE)
     i16 speed;        // Scalar speed (scaled by FP_SCALE)
-    i16 dx, dy;       // Velocities in fixed point (dx = (dir_x * speed) >> 6)
+    i16 speed_x, speed_y; // Velocities in fixed point (speed_x = (dir_x * speed) >> 6)
     
     u8 width, height;
     u8 active;    // 0 = attached to paddle, 1 = moving freely
@@ -176,13 +175,13 @@ typedef struct {
     u8 color;
     u8 type;
     u8 frame;
-    i8 dx;
+    i8 speed_x;
 } enemy_t;
 
 typedef struct {
     u8 active;
-    i16 fx, fy;    // Fixed point position
-    i16 dx, dy;    // Fixed point velocity
+    i16 fpos_x, fpos_y;    // Fixed point position
+    i16 speed_x, speed_y;    // Fixed point velocity
     u8 x, y;       // Screen coords
     u8 old_x, old_y;
     u8 width, height;
@@ -246,7 +245,7 @@ u16 autopilot_timer; // duration of autopilot
 u8 laser_active;       // Power-up flag
 u8 laser_fire_timer;   // Rate-limiter (~0.3s between bursts)
 u8 drunk_active;     // 1 = controls inverted (D trap)
-u8 gravity_active;   // 1 = ball falls faster (G trap)
+// u8 gravity_active;   // REMOVED
 u8 fireball_active;  // 1 = ball pierces bricks (F benefit)
 u8 victory_walk;     // 1 = boss dead, just walk to exit
 u16 victory_palette_timer;
@@ -254,7 +253,8 @@ u8 victory_palette_offset;
 u8 ghost_timer;      // internal timer for ghost
 u8 ghost_period = 8; // period for ghost blinking
 u8 fast_active;      // 1 = ball is extra fast (V trap)
-u8 door_open;     // 1 = exit door is open
+u8 tiny_active;      // 1 = paddle is tiny (T trap)
+u8 door_open;        // 1 = exit door is open
 // Door Energy Field Animation State
 #define DOOR_ANIM_SPEED 4
 u8 door_anim_frame;
@@ -272,7 +272,6 @@ u16 g_key_right = Key_CursorRight;
 u16 g_key_fire  = (u16)Key_Space;
 u16 g_key_pause = (u16)Key_Esc;
 u16 g_key_music = (u16)Key_M;
-u8  g_use_joystick = 0; // 0 = Keyboard only, 1 = Keyboard + Joystick
 
 // Pre-computed background rows for blazing fast rendering without stack allocation overhead
 u8 bg_row_cache[8][80];
@@ -466,12 +465,13 @@ u8 drop_erase_y;
 const u8 level_data[NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
     { // Level 1: "The Wall" - Simple first level
         { _,    _,    _,    _,    _,    _,    _,    _    },
-        { _,    N(0), N(1), N(2), N(3), N(0), N(0), _    },
-        { _,    N(1), N(2), N(3), N(0), N(0), N(1), _    },
+        { _,    N(0), N(1), N(2), N(2), N(1), N(0), _    },
+        { _,    N(0), N(1), N(3), N(3), N(1), N(0), _    },
         { _,    _,    _,    _,    _,    _,    _,    _    },
-        { _,    N(1), N(2), N(3), N(1), N(2), N(3), _    },
-        { _,    _,    _,    _,    _,    _,    _,    _    },
+        { _,    N(0), N(1), N(3), N(3), N(1), N(0), _    },
+        { _,    N(0), N(1), N(2), N(2), N(1), N(0), _    },
     },
+
     { // Level 2: "The Vault" - Hard shell with hidden Laser and Expand
         { H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3) },
         { H(3), N(0), N(1), N(2), N(3), N(0), N(0), H(3) },
@@ -492,15 +492,14 @@ const u8 level_data[NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
         { _,    N(2), _,    NP(2, BPOWER_ICE), NP(2, BPOWER_MAGNET), _,    N(2), _    },
         { N(2), _,    _,    _,    _,    _,    _,    N(2) },
     },
-    { // Level 4: "The Gauntlet" - Precision movement required
-        { H(3), _,    _,    _,    _,    _,    _,    H(3) },
-        { _,    H(3), _,    _,    _,    _,    H(3), _    },
-        { _,    _,    H(3), NP(0, BPOWER_LIFE), NP(0, BPOWER_SLOW), H(3), _,    _    },
-        { _,    _,    N(1), N(1), N(1), N(1), _,    _    },
-        { _,    _,    N(2), N(2), N(2), N(2), _,    _    },
-        { _,    H(3), _,    _,    _,    _,    H(3), _    },
-        { H(3), _,    NP(0, BPOWER_WARP), _,    _,    NP(0, BPOWER_WARP), _,    H(3) },
-        { H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3) },
+    { // Level 4: "The Hourglass" - Tight squeeze
+        { N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2) },
+        { _,    N(1), N(1), N(1), N(1), N(1), N(1), _    },
+        { _,    _,    H(3), N(0), N(0), H(3), _,    _    },
+        { _,    _,    _,    NP(0, BPOWER_LASER), NP(0, BPOWER_LASER), _,    _,    _    },
+        { _,    _,    H(3), N(0), N(0), H(3), _,    _    },
+        { _,    N(1), N(1), N(1), N(1), N(1), N(1), _    },
+        { N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2) },
     },
     { // Level 5: "The Diamond"
         { _,    _,    _,    H(3), H(3), _,    _,    _    },
@@ -512,7 +511,17 @@ const u8 level_data[NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
         { _,    _,    N(1), H(3), H(3), N(1), _,    _    },
         { _,    _,    _,    H(3), H(3), _,    _,    _    },
     },
-    { // Level 6: "The Triangle"
+    { // Level 6: "The Beer Mug" - Refreshing mid-game snack
+        { H(0),    H(0),  H(0),  H(0),  H(0),  _,    _,    _    }, // Foam (Hard/White)
+        { H(0),    H(0),  H(0),  H(0),  H(0),  _,    _,    _    }, // Foam (Hard/White)
+        { N(1),    N(1),  N(1),  N(1),  N(1),  H(0), H(0), _    }, // Beer + Handle top
+        { N(1),    NP(1, BPOWER_DRUNK),  N(1),  N(1),  N(1),  _,    H(0), _    }, // Beer + Handle middle
+        { N(1),    NP(1, BPOWER_ICE), N(1), N(1), N(1), H(0), H(0), _    }, // Beer + Handle bottom
+        { N(1),    N(1),  N(1),  N(1),  N(1),  _,    _,    _    }, // Beer
+        { N(1),    N(1),  N(1),  N(1),  N(1),  _,    _,    _    }, // Beer
+        { H(0),    H(0),  H(0),  H(0),  H(0),  _,    _,    _    }, // Mug base
+    },
+    { // Level 7: "The Triangle"
         { N(0), _,    _,    _,    _,    _,    _,    _    },
         { N(1), N(1), _,    _,    _,    _,    _,    _    },
         { N(2), N(2), N(2), _,    _,    _,    _,    _    },
@@ -522,29 +531,19 @@ const u8 level_data[NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
         { N(2), NP(2, BPOWER_ICE), NP(2, BPOWER_MAGNET), N(2), N(2), N(2), N(2), _    },
         { H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3) },
     },
-    { // Level 7: "The Checkerboard" - A classic geometric challenge
-        { N(1), _,    N(2), _,    N(3), _,    NP(0, BPOWER_ICE), _    },
-        { _,    NP(1, BPOWER_MAGNET), _,    N(2), _,    N(3), _,    N(0) },
-        { N(2), _,    NP(3, BPOWER_GLUE), _,    N(0), _,    N(1), _    },
-        { _,    N(2), _,    N(3), _,    N(0), _,    N(1) },
-        { N(3), _,    N(0), _,    N(1), _,    NP(2, BPOWER_MULTI), _    },
-        { _,    N(3), _,    N(0), _,    N(1), _,    N(2) },
-        { N(0), _,    N(1), _,    N(2), _,    NP(3, BPOWER_ICE), _    },
-        { _,    NP(0, BPOWER_MAGNET), _,    N(1), _,    N(2), _,    N(3) },
-    },
-    { // Level 8: "The Beer Mug" - Refreshing mid-game snack
-        { _,    H(0),  H(0),  H(0),  H(0),  _,    _,    _    }, // Foam (Hard/White)
-        { _,    H(0),  H(0),  H(0),  H(0),  _,    _,    _    }, // Foam (Hard/White)
-        { _,    N(1),  N(1),  N(1),  N(1),  H(0), H(0), _    }, // Beer + Handle top
-        { _,    NP(1, BPOWER_DRUNK),  N(1),  N(1),  N(1),  _,    H(0), _    }, // Beer + Handle middle
-        { _,    NP(1, BPOWER_ICE), N(1), N(1), N(1), H(0), H(0), _    }, // Beer + Handle bottom
-        { _,    N(1),  N(1),  N(1),  N(1),  _,    _,    _    }, // Beer
-        { _,    N(1),  N(1),  N(1),  N(1),  _,    _,    _    }, // Beer
-        { _,    H(0),  H(0),  H(0),  H(0),  _,    _,    _    }, // Mug base
+    { // Level 8: "The Checkerboard" - A classic geometric challenge
+        { N(1), _,    N(2), _,    N(3), _,    NP(0, BPOWER_ICE), H(0)    },
+        { H(0),    NP(1, BPOWER_MAGNET), _,    N(2), _,    N(3), _,    N(0) },
+        { N(2), _,    NP(3, BPOWER_GLUE), _,    N(0), _,    N(1), H(0)    },
+        { H(0),    N(2), _,    N(3), _,    N(0), _,    N(1) },
+        { N(3), _,    N(0), _,    N(1), _,    NP(2, BPOWER_MULTI), H(0)    },
+        { H(0),    N(3), _,    N(0), _,    N(1), _,    N(2) },
+        { N(0), _,    N(1), _,    N(2), _,    NP(3, BPOWER_ICE), H(0)    },
+        { H(0),    NP(0, BPOWER_MAGNET), _,    N(1), _,    N(2), _,    N(3) },
     },
     { // Level 9: "Pacman" - Waka waka
         { _,    _,    N(1), N(1), N(1), N(1), _,    _    },
-        { _,    N(1), N(1), N(1), N(1), N(1), N(1), _    },
+        { _,    N(1), N(1), N(1), N(1), H(1), N(1), _    },
         { N(1), N(1), N(1), N(1), N(1), N(1), N(1), _    },
         { N(1), N(1), N(1), N(1), N(1), N(1), _,    _    },
         { NP(1, BPOWER_TINY), N(1), N(1), NP(1, BPOWER_ICE), _,    _,    _,    _    },
@@ -683,7 +682,7 @@ void spawnMultiBalls() {
         ball.active = 1;
         if (source) {
             ball.x = source->x;  ball.y = source->y;
-            ball.fx = source->fx; ball.fy = source->fy;
+            ball.fpos_x = source->fpos_x; ball.fpos_y = source->fpos_y;
             ball.speed = source->speed;
             ball.dir_x = source->dir_x;
             ball.dir_y = source->dir_y;
@@ -691,8 +690,8 @@ void spawnMultiBalls() {
             // No ball at all — launch from paddle center
             ball.x = paddle.x + (paddle.width / 2) - (ball.width / 2);
             ball.y = paddle.y - ball.height;
-            ball.fx = (i16)ball.x * FP_SCALE;
-            ball.fy = (i16)ball.y * FP_SCALE;
+            ball.fpos_x = (i16)ball.x * FP_SCALE;
+            ball.fpos_y = (i16)ball.y * FP_SCALE;
             ball.dir_x = initial_dir_x;
             ball.dir_y = initial_dir_y;
         }
@@ -707,13 +706,13 @@ void spawnMultiBalls() {
             extra_balls[eb].old_y = ball.y;
         }
         extra_balls[eb].x      = ball.x;     extra_balls[eb].y      = ball.y;
-        extra_balls[eb].fx     = ball.fx;    extra_balls[eb].fy     = ball.fy;
+        extra_balls[eb].fpos_x     = ball.fpos_x;    extra_balls[eb].fpos_y     = ball.fpos_y;
         extra_balls[eb].width  = ball.width; extra_balls[eb].height = ball.height;
         extra_balls[eb].speed  = ball.speed; extra_balls[eb].active = 1;
         extra_balls[eb].dir_x  = ball.dir_x + ((eb == 0) ? -18 : 18);
         extra_balls[eb].dir_y  = src_dy;
-        extra_balls[eb].dx = FP_VEL(extra_balls[eb].dir_x, extra_balls[eb].speed);
-        extra_balls[eb].dy = FP_VEL(extra_balls[eb].dir_y, extra_balls[eb].speed);
+        extra_balls[eb].speed_x = FP_VEL(extra_balls[eb].dir_x, extra_balls[eb].speed);
+        extra_balls[eb].speed_y = FP_VEL(extra_balls[eb].dir_y, extra_balls[eb].speed);
     }
 }
 
@@ -780,17 +779,17 @@ void applyPowerup(u8 ptype) {
             paddle.width = PADDLE_WIDTH_BYTES;
             expand_active = 0;
         }
-        if (slow_active) {
+        if (slow_active || fast_active) {
             ball.speed = getNormalBallSpeed();
             updateBallVelocity();
         }
         slow_active = 0;
+        fast_active = 0;
         autopilot_active = 0;
         autopilot_timer = 0;
         drunk_active = 0;
-        gravity_active = 0;
         fireball_active = 0;
-        fast_active = 0;
+        tiny_active = 0;
     }
 
     // Activate new power-up
@@ -805,10 +804,10 @@ void applyPowerup(u8 ptype) {
         updateBallVelocity();
     } else if (ptype == BPOWER_TINY) {
         paddle.width = PADDLE_WIDTH_TINY; 
-    } else if (ptype == BPOWER_GRAVITY) {
-        gravity_active = 1;
+        tiny_active = 1;
     } else if (ptype == BPOWER_FIREBALL) {
         fireball_active = 1;
+        ghost_timer = 0;
     } else if (ptype == BPOWER_LASER) {
         laser_active = 1;
         // Clean up any still-flying lasers from the old laser pickup
@@ -1004,6 +1003,7 @@ u8 getSpriteIndex(const u8** text_ptr) {
     else if (c == 0xC3) {
         if ((*text_ptr)[1] == 0x91 || (*text_ptr)[1] == 0xB1) { sprite_index = 43; (*text_ptr)++; } // Ñ/ñ
     }
+    else if (c == '-') sprite_index = 44;
     return sprite_index;
 }
 
@@ -1199,7 +1199,6 @@ void assignPowerups() {
                     u8 pwr = 1 + ((rnd >> 2) % NUM_POWERUP_SPRITES);
                     brick_map[r][c] = BRICK(BTYPE_NORMAL, BRICK_COLOR(brick_map[r][c]), pwr);
                 }
-                //brick_map[r][c] = BRICK(BTYPE_NORMAL, BRICK_COLOR(brick_map[r][c]), BPOWER_ICE);
             }
         }
     }
@@ -1298,7 +1297,6 @@ void resetPowerups() {
     laser_active = 0;
     laser_fire_timer = 0;
     drunk_active = 0;
-    gravity_active = 0;
     fireball_active = 0;
     ghost_timer = 0;
     fast_active = 0;
@@ -1307,6 +1305,7 @@ void resetPowerups() {
     magnet_active = 0;
     autopilot_active = 0;
     autopilot_timer = 0;
+    tiny_active = 0;
     
     initPaddle(); // Reset paddle width and position
     initBall();   // Ball starts attached to paddle
@@ -1343,12 +1342,11 @@ u16 getNormalBallSpeed() {
     return speed;
 }
 
-// Helper to update dx, dy based on current speed and direction
 void updateBallVelocity() {
     // Both dir and speed are signed 16-bit. 55 * 150 = 8250, fitting well inside i16 (max 32767).
     // Using >> 6 is much faster on Z80 than 32-bit division and prevents __mullong compiler bugs.
-    ball.dx = FP_VEL(ball.dir_x, ball.speed);
-    ball.dy = FP_VEL(ball.dir_y, ball.speed);
+    ball.speed_x = FP_VEL(ball.dir_x, ball.speed);
+    ball.speed_y = FP_VEL(ball.dir_y, ball.speed);
 }
 
 void initGame() {
@@ -1366,8 +1364,8 @@ void initGame() {
     
     ball.old_x = ball.x;
     ball.old_y = ball.y;
-    ball.fx = (i16)ball.x * FP_SCALE;
-    ball.fy = (i16)ball.y * FP_SCALE;
+    ball.fpos_x = (i16)ball.x * FP_SCALE;
+    ball.fpos_y = (i16)ball.y * FP_SCALE;
     
     ball.speed = getNormalBallSpeed();
     ball.dir_x = 0;
@@ -1497,8 +1495,8 @@ void nextLevel() {
     ball.x = paddle.x + (paddle.width / 2) - (ball.width / 2);
     ball.y = paddle.y - ball.height;
     
-    ball.fx = (i16)ball.x * FP_SCALE;
-    ball.fy = (i16)ball.y * FP_SCALE;
+    ball.fpos_x = (i16)ball.x * FP_SCALE;
+    ball.fpos_y = (i16)ball.y * FP_SCALE;
     
     // Increase difficulty based on level
     ball.speed = getNormalBallSpeed();
@@ -1617,8 +1615,8 @@ void updatePaddle() {
         }
     } else {
         // Check redefinable keys or joystick
-        u8 left_p = cpct_isKeyPressed(g_key_left) || (g_use_joystick && cpct_isKeyPressed(Joy0_Left));
-        u8 right_p = cpct_isKeyPressed(g_key_right) || (g_use_joystick && cpct_isKeyPressed(Joy0_Right));
+        u8 left_p = cpct_isKeyPressed(g_key_left) || cpct_isKeyPressed(Key_O) || cpct_isKeyPressed(Joy0_Left);
+        u8 right_p = cpct_isKeyPressed(g_key_right) || cpct_isKeyPressed(Key_P) || cpct_isKeyPressed(Joy0_Right);
         if (drunk_active) { u8 tmp = left_p; left_p = right_p; right_p = tmp; }
 
         if (left_p) {
@@ -1665,11 +1663,8 @@ u8 areExtrasActive() {
 void moveBall(ball_t *b) {
     i16 next_x, next_y;
 
-    b->fx += b->dx;
-    b->fy += b->dy;
-    if (gravity_active && !demo_mode) {
-        b->fy += 120; // Much stronger gravity (approx 2 pixels per frame pull)
-    }
+    b->fpos_x += b->speed_x;
+    b->fpos_y += b->speed_y;
 
     // Reverse Magnet Trap: repel ball from paddle when close
     if (magnet_active && b->y > paddle.y - 40 && b->y < paddle.y + 10) {
@@ -1678,33 +1673,33 @@ void moveBall(ball_t *b) {
             // Repel: nudge the fixed-point X away from the paddle's center
             u8 paddle_center = paddle.x + (paddle.width >> 1);
             if (b->x < paddle_center) {
-                b->fx -= 48; // Stronger nudge left (~0.75 pixels)
+                b->fpos_x -= 48; // Stronger nudge left (~0.75 pixels)
             } else {
-                b->fx += 48; // Stronger nudge right
+                b->fpos_x += 48; // Stronger nudge right
             }
         }
     }
 
-    next_x = FP_INT(b->fx);
-    next_y = FP_INT(b->fy);
+    next_x = FP_INT(b->fpos_x);
+    next_y = FP_INT(b->fpos_y);
 
     // Bounce left/right walls
-    if (b->fx <= WALL_LEFT_FP || b->fx + (b->width * FP_SCALE) >= WALL_RIGHT_FP) {
+    if (b->fpos_x <= WALL_LEFT_FP || b->fpos_x + (b->width * FP_SCALE) >= WALL_RIGHT_FP) {
         b->dir_x = -b->dir_x;
-        b->dx = FP_VEL(b->dir_x, b->speed);
-        b->dy = FP_VEL(b->dir_y, b->speed);
-        if (b->fx <= WALL_LEFT_FP) b->fx = WALL_LEFT_FP;
-        if (b->fx + (b->width * FP_SCALE) >= WALL_RIGHT_FP) b->fx = (WALL_RIGHT_BYTES - b->width) * FP_SCALE;
-        next_x = FP_INT(b->fx);
+        b->speed_x = FP_VEL(b->dir_x, b->speed);
+        b->speed_y = FP_VEL(b->dir_y, b->speed);
+        if (b->fpos_x <= WALL_LEFT_FP) b->fpos_x = WALL_LEFT_FP;
+        if (b->fpos_x + (b->width * FP_SCALE) >= WALL_RIGHT_FP) b->fpos_x = (WALL_RIGHT_BYTES - b->width) * FP_SCALE;
+        next_x = FP_INT(b->fpos_x);
         cpct_akp_SFXPlay(8, 15, 77, 0, 0, AY_CHANNEL_ALL); // F5 - same as normal brick
     }
 
     // Bounce top wall
-    if (b->fy <= WALL_TOP_FP) {
+    if (b->fpos_y <= WALL_TOP_FP) {
         b->dir_y = -b->dir_y;
-        b->dx = FP_VEL(b->dir_x, b->speed);
-        b->dy = FP_VEL(b->dir_y, b->speed);
-        b->fy = WALL_TOP_FP;
+        b->speed_x = FP_VEL(b->dir_x, b->speed);
+        b->speed_y = FP_VEL(b->dir_y, b->speed);
+        b->fpos_y = WALL_TOP_FP;
         next_y = WALL_TOP;
         cpct_akp_SFXPlay(8, 15, 77, 0, 0, AY_CHANNEL_ALL); // F5 - same as normal brick
     }
@@ -1726,8 +1721,8 @@ void moveBall(ball_t *b) {
                 
                 enemies[i].active = 0;
                 b->dir_y = -b->dir_y; // bounce ball
-                b->dx = FP_VEL(b->dir_x, b->speed);
-                b->dy = FP_VEL(b->dir_y, b->speed);
+                b->speed_x = FP_VEL(b->dir_x, b->speed);
+                b->speed_y = FP_VEL(b->dir_y, b->speed);
                 
                 score += 50;
                 hud_dirty = 1;
@@ -1742,14 +1737,14 @@ void moveBall(ball_t *b) {
 u8 bouncePaddle(ball_t *b) {
     i8 paddle_center, ball_center, diff;
 
-    if (b->dy <= 0) return 0;
+    if (b->speed_y <= 0) return 0;
     if (b->y + b->height < paddle.y) return 0;
     if (b->y > paddle.y + paddle.height) return 0;
     if (b->x + b->width < paddle.x) return 0;
     if (b->x > paddle.x + paddle.width) return 0;
 
     b->y = paddle.y - b->height;
-    b->fy = (i16)b->y * FP_SCALE;
+    b->fpos_y = (i16)b->y * FP_SCALE;
 
     paddle_center = paddle.x + (paddle.width / 2);
     ball_center = b->x + (b->width / 2);
@@ -1761,8 +1756,8 @@ u8 bouncePaddle(ball_t *b) {
     else if (diff == 1)  { b->dir_x = 18;  b->dir_y = -44; }
     else                 { b->dir_x = 20;  b->dir_y = -27; }
 
-    b->dx = FP_VEL(b->dir_x, b->speed);
-    b->dy = FP_VEL(b->dir_y, b->speed);
+    b->speed_x = FP_VEL(b->dir_x, b->speed);
+    b->speed_y = FP_VEL(b->dir_y, b->speed);
     return 1;
 }
 
@@ -1875,8 +1870,8 @@ hit:
         else { 
             if (!fireball_active || bricks[r][c] == BSTATE_GOLD) b->dir_y = -b->dir_y; 
         }
-        b->dx = FP_VEL(b->dir_x, b->speed);
-        b->dy = FP_VEL(b->dir_y, b->speed);
+        b->speed_x = FP_VEL(b->dir_x, b->speed);
+        b->speed_y = FP_VEL(b->dir_y, b->speed);
 
         return hitBrick(r, c);
     }
@@ -2000,12 +1995,12 @@ void loseLife() {
             cpct_setPALColour(j, default_palette[j]);
         }
         
+        resetPowerups(); // Reset for all cases when a life is lost
+
         if (num_players == 2) {
              switchPlayer();
              showPlayerStart(current_player);
         } else {
-            ball.active = 0;
-            resetPowerups();
             closeDoor();
         }
     }
@@ -2017,7 +2012,7 @@ void loseLife() {
 void updateLaserInput() {
     if (!laser_active) return;
     if (laser_fire_timer > 0) laser_fire_timer--;
-    if ((cpct_isKeyPressed(g_key_fire) || (g_use_joystick && cpct_isKeyPressed(Joy0_Fire1))) && laser_fire_timer == 0) {
+    if ((cpct_isKeyPressed(g_key_fire) || cpct_isKeyPressed(Joy0_Fire1)) && laser_fire_timer == 0) {
         fireLaser();
         laser_fire_timer = 15;
     }
@@ -2029,8 +2024,8 @@ void updateBallOnPaddle() {
     ball.old_y = ball.y;
     ball.x = paddle.x + (paddle.width / 2) - (ball.width / 2);
     ball.y = paddle.y - ball.height;
-    ball.fx = (i16)ball.x * FP_SCALE;
-    ball.fy = (i16)ball.y * FP_SCALE;
+    ball.fpos_x = (i16)ball.x * FP_SCALE;
+    ball.fpos_y = (i16)ball.y * FP_SCALE;
 
     // Auto-launch countdown: fires the ball automatically after ~5 seconds
     if (launch_timer > 0) launch_timer--;
@@ -2040,7 +2035,7 @@ void updateBallOnPaddle() {
     if (glue_active) {
         // Glue mode: wait for glue_timer (set on paddle bounce), then auto-release
         if (glue_timer > 0) glue_timer--;
-        if (glue_timer == 0 || cpct_isKeyPressed(g_key_fire) || (g_use_joystick && cpct_isKeyPressed(Joy0_Fire1)) || (demo_mode && glue_timer < 100)) {
+        if (glue_timer == 0 || cpct_isKeyPressed(g_key_fire) || cpct_isKeyPressed(Joy0_Fire1) || (demo_mode && glue_timer < 100)) {
             glue_timer = 0;
             launch_timer = 250; // Reset for next ball
             ball.active = 1;
@@ -2050,7 +2045,7 @@ void updateBallOnPaddle() {
         }
     } else {
         // Normal mode: Fire OR auto-launch countdown reaching 0 OR demo auto-launch
-        if (cpct_isKeyPressed(g_key_fire) || (g_use_joystick && cpct_isKeyPressed(Joy0_Fire1)) || 
+        if (cpct_isKeyPressed(g_key_fire) || cpct_isKeyPressed(Joy0_Fire1) || 
             launch_timer == 0 || (demo_mode && launch_timer < 150)) {
             launch_timer = 250; // Reset for next ball
             ball.active = 1;
@@ -2076,7 +2071,7 @@ u8 handleBallPhysics(ball_t *b) {
             if (glue_active) {
                 b->active = 0;
                 b->dir_x = 0; b->dir_y = 0;
-                b->dx = 0; b->dy = 0;
+                b->speed_x = 0; b->speed_y = 0;
                 glue_timer = 200;
             }
         }
@@ -2168,7 +2163,7 @@ void drawDropSprite() {
 //   The blank window shrinks from 8 rows to 1 row → imperceptible.
 //
 // General rule: for a sprite that moves slowly in one direction, only erase
-//   the strip that is ACTUALLY uncovered (delta = dy or dx).
+//   the strip that is ACTUALLY uncovered (delta = speed_y or speed_x).
 // ---------------------------------------------------------------------------
 void drawDrop() {
     u8* pVideoMemory;
@@ -2186,10 +2181,10 @@ void drawDrop() {
         // Only erase the TOP strip that becomes uncovered (usually 1px),
         // NOT the entire previous sprite area (DROP_HEIGHT rows).
         // This minimises the time the CRT can see blank pixels.
-        u8 dy = drop.y - drop.old_y;   // pixels moved (normally 1)
-        if (dy > 0 && dy < DROP_HEIGHT) {
+        u8 delta_y = drop.y - drop.old_y;   // pixels moved (normally 1)
+        if (delta_y > 0 && delta_y < DROP_HEIGHT) {
             // Erase only the newly uncovered top strip (usually 1px)
-            drawBackgroundRect(drop.x, drop.old_y, DROP_WIDTH, dy);
+            drawBackgroundRect(drop.x, drop.old_y, DROP_WIDTH, delta_y);
         } else {
             // Fallback: large jump or teleport → full erase
             drawBackgroundRect(drop.x, drop.old_y, DROP_WIDTH, DROP_HEIGHT);
@@ -2210,11 +2205,11 @@ void drawDrop() {
     // position before we repaint the bricks below it.
     if (drop.old_y != drop.y && drop.old_y < SCREEN_HEIGHT) {
         u8 r, c;
-        u8 dy = drop.y - drop.old_y;
-        if (dy > 0 && dy < DROP_HEIGHT) {
+        u8 delta_y = drop.y - drop.old_y;
+        if (delta_y > 0 && delta_y < DROP_HEIGHT) {
             for (r = 0; r < BRICK_ROWS; r++) {
                 if (brick_y[r] + BRICK_HEIGHT <= drop.old_y) continue;
-                if (brick_y[r] >= drop.old_y + dy) break;
+                if (brick_y[r] >= drop.old_y + delta_y) break;
                 for (c = 0; c < BRICK_COLS; c++) {
                     if (brick_x[c] + BRICK_WIDTH_BYTES <= drop.x) continue;
                     if (brick_x[c] >= drop.x + DROP_WIDTH) break;
@@ -2251,10 +2246,10 @@ void initBoss() {
     boss.y = 20;
     boss.old_x = 255; // Force initial draw
     boss.old_y = 255;
-    boss.fx = (i16)boss.x << FP_SCALE_SHIFT;
-    boss.fy = (i16)boss.y << FP_SCALE_SHIFT;
-    boss.dx = 0; // Stationary for now as requested
-    boss.dy = 0;
+    boss.fpos_x = (i16)boss.x << FP_SCALE_SHIFT;
+    boss.fpos_y = (i16)boss.y << FP_SCALE_SHIFT;
+    boss.speed_x = 0; // Stationary for now as requested
+    boss.speed_y = 0;
     
     // Clear the top of the level layout
     drawBackgroundRect(WALL_LEFT_BYTES, WALL_TOP, WALL_RIGHT_BYTES - WALL_LEFT_BYTES, boss.height + 10);
@@ -2288,7 +2283,7 @@ void updateBoss() {
                     enemies[i].old_y = enemies[i].y;
                     enemies[i].color = PLT_BRIGHT_YELLOW; // Specific color for boss drops?
                     enemies[i].type = rand8() % NUM_ENEMY_SPRITES;
-                    enemies[i].dx = (rand8() & 1) ? 1 : -1;
+                    enemies[i].speed_x = (rand8() & 1) ? 1 : -1;
                     enemies[i].frame = 0;
                     break;
                 }
@@ -2348,8 +2343,8 @@ void checkBossCollision(ball_t* b) {
             b->dir_y = -b->dir_y; 
         }
         
-        b->dx = FP_VEL(b->dir_x, b->speed);
-        b->dy = FP_VEL(b->dir_y, b->speed);
+        b->speed_x = FP_VEL(b->dir_x, b->speed);
+        b->speed_y = FP_VEL(b->dir_y, b->speed);
         
         // Damage boss
         if (boss.health > 0) boss.health--;
@@ -2674,6 +2669,17 @@ void updateStarfield() {
     }
 }
 
+// Unified wait loop for menus
+u8 updateMenuLoop(u8 canEsc) {
+    while (1) {
+        cpct_waitVSYNC();
+        updateStarfield();
+        cpct_scanKeyboard_f();
+        if (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) return 0;
+        if (canEsc && cpct_isKeyPressed(Key_Esc)) return 1;
+    }
+}
+
 u8 showVictory() {
     cpct_memset((void*)0xC000, 0x00, 0x4000);
     initStarfield();
@@ -2691,13 +2697,7 @@ u8 showVictory() {
     // Silence audio
     if (music_on) cpct_akp_stop();
 
-    while(1) {
-        cpct_waitVSYNC();
-        updateStarfield();
-        cpct_scanKeyboard_f();
-        if (cpct_isKeyPressed(Key_Space)) return 0;
-        if (cpct_isKeyPressed(Key_Esc)) return 1;
-    }
+    return updateMenuLoop(1);
 }
 
 u8 showGameOver() {
@@ -2708,18 +2708,13 @@ u8 showGameOver() {
     drawCustomTextLargeCentered(GET_STR(STR_GAME_OVER), 60, PLT_ORANGE);
 
     // Draw funny subtext (Small)
-    drawCustomTextCentered(GET_STR(STR_NO_MOTO_NO_EAT), 90, PLT_BRIGHT_YELLOW);
+    drawCustomTextCentered(GET_STR(STR_NO_MOTO_NO_EAT), 90, PLT_BRIGHT_WHITE);
+    drawCustomTextCentered(GET_STR(STR_GAME_OVER_SUB2), 105, PLT_BRIGHT_WHITE);
     
     // Silence audio because the draw loop is stopped
     if (music_on) cpct_akp_stop();
 
-    while(1) {
-        cpct_waitVSYNC();
-        updateStarfield();
-        cpct_scanKeyboard_f();
-        if (cpct_isKeyPressed(Key_Space)) return 0;
-        if (cpct_isKeyPressed(Key_Esc)) return 1;
-    }
+    return updateMenuLoop(1);
 }
 
 void initPaddle() {
@@ -2736,8 +2731,8 @@ void initBall() {
     ball.x = paddle.x + (paddle.width / 2);
     ball.y = paddle.y - ball.height;
     
-    ball.fx = (i16)ball.x * FP_SCALE;
-    ball.fy = (i16)ball.y * FP_SCALE;
+    ball.fpos_x = (i16)ball.x * FP_SCALE;
+    ball.fpos_y = (i16)ball.y * FP_SCALE;
     
     ball.speed = getNormalBallSpeed(); // Start speed
     ball.dir_x = 0;
@@ -2797,7 +2792,7 @@ void updateEnemies() {
                     enemies[i].old_y = enemies[i].y;
                     enemies[i].color = COLOR_BRICK_BASE + (rand8() % 7);
                     enemies[i].type = rand8() % NUM_ENEMY_SPRITES;
-                    enemies[i].dx = (rand8() & 1) ? 1 : -1;
+                    enemies[i].speed_x = (rand8() & 1) ? 1 : -1;
                     enemies[i].frame = 0;
                     enemy_spawn_timer = 250 + (rand8() & 127);
                     break;
@@ -2826,26 +2821,26 @@ void updateEnemies() {
         
         // 2. Horizontal movement
         if ((e->frame & 7) == 0) {
-            e->x += e->dx;
+            e->x += e->speed_x;
             // Check wall collision
             if (e->x < WALL_LEFT_BYTES) {
                 e->x = WALL_LEFT_BYTES;
-                e->dx = 1;
+                e->speed_x = 1;
             } else if (e->x + ENEMY_WIDTH > WALL_RIGHT_BYTES) {
                 e->x = WALL_RIGHT_BYTES - ENEMY_WIDTH;
-                e->dx = -1;
+                e->speed_x = -1;
             } else {
                 // Check brick horizontal collision
                 if (checkEnemyBrickCollision(e->x, e->y)) {
                     e->x = e->old_x;
-                    e->dx = -e->dx; // Bounce horizontally
+                    e->speed_x = -e->speed_x; // Bounce horizontally
                 }
             }
         }
 
         // Periodic random-ish direction change (every ~2.5 seconds) based on frame counter
         if ((e->frame & 0x7F) == (i << 5)) {
-            e->dx = -e->dx;
+            e->speed_x = -e->speed_x;
         }
 
         // Deactivate if reached bottom (or about to hit HUD area if wrap occurs)
@@ -2879,11 +2874,16 @@ void drawEnemies() {
             continue;
         }
         
-        // 1. Erase only if moved
-        if (e->old_x != e->x || e->old_y != e->y) {
-            if (e->old_x != 0xFF) {
-                drawBackgroundRect(e->old_x, e->old_y, ENEMY_WIDTH, ENEMY_HEIGHT);
-            }
+        // 1. Delta Erase: Only erase the vacated strips to minimize flicker.
+        // Enemies move slowly (1px/frame), so strips are small (1x8 or 4x1).
+        if (e->old_x != 0xFF && (e->old_x != e->x || e->old_y != e->y)) {
+            // Vertical strip
+            if (e->y > e->old_y) drawBackgroundRect(e->old_x, e->old_y, ENEMY_WIDTH, e->y - e->old_y);
+            else if (e->y < e->old_y) drawBackgroundRect(e->old_x, e->y + ENEMY_HEIGHT, ENEMY_WIDTH, e->old_y - e->y);
+            
+            // Horizontal strip
+            if (e->x > e->old_x) drawBackgroundRect(e->old_x, e->old_y, e->x - e->old_x, ENEMY_HEIGHT);
+            else if (e->x < e->old_x) drawBackgroundRect(e->x + ENEMY_WIDTH, e->old_y, e->old_x - e->x, ENEMY_HEIGHT);
         }
 
         // 2. Draw current state with safety clipping
@@ -2938,16 +2938,7 @@ u8 showStory() {
     drawCustomTextLargeCentered(GET_STR(STR_STORY_WIN_1), 160, PLT_ORANGE);
     drawCustomTextLargeCentered(GET_STR(STR_STORY_WIN_2), 175, PLT_ORANGE);
 
-    while (1) {
-        cpct_waitVSYNC();
-        
-        // --- Starfield Update ---
-        updateStarfield();
-        
-        cpct_scanKeyboard_f();
-        if (cpct_isKeyPressed(Key_Space)) return 0;
-        if (cpct_isKeyPressed(Key_Esc)) return 1;
-    }
+    return updateMenuLoop(1);
 }
 
 void drawDifficultyLine() {
@@ -2955,10 +2946,10 @@ void drawDifficultyLine() {
     // Clear only the line area (approx 160 pixels wide, 8 pixels high)
     // drawBackgroundRect(26, 125, 54, 8); // Wall areas start at byte 2, playfield at WALL_LEFT_BYTES
     // Actually, just overwriting is usually fine if colors are same.
-    drawCustomText(GET_STR(STR_DIFFICULTY), 26, 116, PLT_BRIGHT_WHITE);
+    drawCustomText(GET_STR(STR_DIFFICULTY), 30, 116, PLT_BRIGHT_WHITE);
     diff_str[0] = '1' + game_difficulty;
     diff_str[1] = '\0';
-    drawCustomText(diff_str, 26 + 30, 116, PLT_BRIGHT_YELLOW);
+    drawCustomText(diff_str, 58, 116, PLT_BRIGHT_YELLOW);
 }
 
 void drawIntroContent() {
@@ -2973,19 +2964,19 @@ void drawIntroContent() {
     drawCustomTextXLarge((const u8*)"ER", 69, 33, PLT_MAUVE);
 
     // Draw player selection options (aligned to column)
-    drawCustomText(GET_STR(STR_DEMO),       26, 77, PLT_BRIGHT_WHITE);
-    drawCustomText(GET_STR(STR_1_PLAYER),   26, 90, PLT_BRIGHT_WHITE);
-    drawCustomText(GET_STR(STR_2_PLAYERS),  26, 103, PLT_BRIGHT_WHITE);
+    drawCustomText(GET_STR(STR_DEMO),       30, 77, PLT_BRIGHT_WHITE);
+    drawCustomText(GET_STR(STR_1_PLAYER),   30, 90, PLT_BRIGHT_WHITE);
+    drawCustomText(GET_STR(STR_2_PLAYERS),  30, 103, PLT_BRIGHT_WHITE);
     
-    drawCustomText(GET_STR(STR_DIFFICULTY), 26, 116, PLT_BRIGHT_WHITE);
+    drawCustomText(GET_STR(STR_DIFFICULTY), 30, 116, PLT_BRIGHT_WHITE);
     {
         u8 diff_str[2];
         diff_str[0] = '1' + game_difficulty;
         diff_str[1] = '\0';
-        drawCustomText(diff_str, 26 + 30, 116, PLT_BRIGHT_YELLOW);
+        drawCustomText(diff_str, 58, 116, PLT_BRIGHT_YELLOW);
     }
 
-    drawCustomText(GET_STR(STR_PRESS_H_HELP), 26, 129, PLT_BRIGHT_WHITE);
+    drawCustomText(GET_STR(STR_PRESS_H_HELP), 30, 129, PLT_BRIGHT_WHITE);
 
     // Draw credits
     drawCustomTextCentered(GET_STR(STR_CREDITS_CODE), 161, PLT_BRIGHT_YELLOW);
@@ -2997,11 +2988,10 @@ void drawIntroContent() {
 void showIntro() {
     u8 i;
     u8 frame = 0;
+    u8 selection = 1; // Default to 1 Player
+    u8 key_held = 0;
+    u8 selection_y[] = {77, 90, 103, 116, 129};
     u8 pal[16];
-    u8 tx = 1;
-    u8 ty = 0;
-    u8 old_ty = 0;
-    u8 target_ty = 40;
     
     // Copy the default hardware palette
     for(i=0; i<16; i++) pal[i] = hw_palette[i];
@@ -3015,44 +3005,68 @@ void showIntro() {
     // Draw intro screen content
     drawIntroContent();
 
+    // Clear background cache to ensure drawBackgroundRect clears to black (not previous patterns)
+    cpct_memset(bg_row_cache, 0x00, 8 * 80);
+
     while (1) {
         cpct_waitVSYNC();
         frame++;
         updateStarfield();
 
+        // 1. Draw selection cursor
+        {
+            u8* pMem = cpct_getScreenPtr((void*)0xC000, 21, selection_y[selection]);
+            cpct_drawSprite(paddle_sprite, pMem, 6, 6);
+        }
+
         cpct_scanKeyboard_f();
-        if (cpct_isKeyPressed(Key_1)) {
-            num_players = 1;
-            demo_mode = 0;
-            break;
-        }
-        if (cpct_isKeyPressed(Key_2)) {
-            num_players = 2;
-            demo_mode = 0;
-            break;
-        }
-        if (cpct_isKeyPressed(Key_0)) {
-            num_players = 1;
-            demo_mode = 1;
-            break;
-        }
-        if (cpct_isKeyPressed(Key_3)) {
-            if (!key_3_held) {
-                game_difficulty++;
-                if (game_difficulty > 2) game_difficulty = 0;
-                drawDifficultyLine(); // Optimized redraw
-                key_3_held = 1;
+
+        // 2. Navigation (Up/Down)
+        if (cpct_isKeyPressed(Key_CursorUp) || cpct_isKeyPressed(Joy0_Up)) {
+            if (!key_held) {
+                drawBackgroundRect(21, selection_y[selection], 6, 6);
+                if (selection > 0) selection--; else selection = 4;
+                key_held = 1;
+            }
+        } else if (cpct_isKeyPressed(Key_CursorDown) || cpct_isKeyPressed(Joy0_Down)) {
+            if (!key_held) {
+                drawBackgroundRect(21, selection_y[selection], 6, 6);
+                if (selection < 4) selection++; else selection = 0;
+                key_held = 1;
+            }
+        } else if (selection == 3 && (cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Joy0_Left))) {
+            if (!key_held) {
+                if (game_difficulty > 0) game_difficulty--; else game_difficulty = 2;
+                drawDifficultyLine();
+                key_held = 1;
+            }
+        } else if (selection == 3 && (cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Joy0_Right))) {
+            if (!key_held) {
+                if (game_difficulty < 2) game_difficulty++; else game_difficulty = 0;
+                drawDifficultyLine();
+                key_held = 1;
+            }
+        } else if (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) {
+            if (!key_held) {
+                if (selection == 0) { num_players = 1; demo_mode = 1; break; }
+                if (selection == 1) { num_players = 1; demo_mode = 0; break; }
+                if (selection == 2) { num_players = 2; demo_mode = 0; break; }
+                if (selection == 3) {
+                    game_difficulty++;
+                    if (game_difficulty > 2) game_difficulty = 0;
+                    drawDifficultyLine();
+                    key_held = 1;
+                }
+                if (selection == 4) {
+                    showControls();
+                    cpct_memset((void*)0xC000, 0x00, 0x4000);
+                    initStarfield();
+                    drawIntroContent();
+                    key_held = 1;
+                }
             }
         } else {
-            key_3_held = 0;
-        }
-        if (cpct_isKeyPressed(Key_H)) {
-            showControls();
-            
-            // Redraw intro screen after returning from help
-            cpct_memset((void*)0xC000, 0x00, 0x4000);
-            initStarfield();
-            drawIntroContent();
+            key_held = 0;
         }
     }
 
@@ -3060,107 +3074,60 @@ void showIntro() {
     cpct_setPalette(hw_palette, 16);
 }
 
-// Controls screen: key controls. Shown once after the intro.
-// Mode 0: each char = 4 bytes. Screen = 80 bytes = 20 chars wide.
-// Center formula: x = (80 - chars * 4) / 2
+
+
+
+
+// Controls screen: key controls.
 u8 showControls() {
+    u8 i;
+    const u8 ids[][2] = {
+        {STR_KEY_LEFT,  STR_MOVE_LEFT},
+        {STR_KEY_RIGHT, STR_MOVE_RIGHT},
+        {STR_KEY_SPACE, STR_FIRE},
+        {STR_KEY_ESC,   STR_PAUSE},
+        {STR_KEY_M,     STR_MUSIC}
+    };
+    
     cpct_memset((void*)0xC000, 0x00, 0x4000);
     initStarfield();
+    drawCustomTextLargeCentered(GET_STR(STR_CONTROLS), 15, PLT_ORANGE);
 
-    drawCustomTextLargeCentered(GET_STR(STR_CONTROLS), 10, PLT_ORANGE);
-
-    // Key listings (left-aligned from x=18, value from x=42)
-    // Row format:  [KEY]  [ACTION]
-    drawCustomText(GET_STR(STR_KEY_LEFT),  18, 35, PLT_BRIGHT_WHITE);
-    drawCustomText(GET_STR(STR_MOVE_LEFT), 42, 35, PLT_BRIGHT_YELLOW);
-
-    drawCustomText(GET_STR(STR_KEY_RIGHT), 18, 55, PLT_BRIGHT_WHITE);
-    drawCustomText(GET_STR(STR_MOVE_RIGHT), 42, 55, PLT_BRIGHT_YELLOW);
-
-    drawCustomText(GET_STR(STR_KEY_SPACE),   18, 75, PLT_BRIGHT_WHITE);
-    drawCustomText(GET_STR(STR_FIRE),      42, 75, PLT_BRIGHT_YELLOW);
-
-    drawCustomText(GET_STR(STR_KEY_ESC),     18, 95, PLT_BRIGHT_WHITE);
-    drawCustomText(GET_STR(STR_PAUSE),    42, 95, PLT_BRIGHT_YELLOW);
-
-    drawCustomText(GET_STR(STR_KEY_M),       18, 115, PLT_BRIGHT_WHITE);
-    drawCustomText(GET_STR(STR_MUSIC),    42, 115, PLT_BRIGHT_YELLOW);
-
-
-
-    while (1) {
-        cpct_waitVSYNC();
-        updateStarfield();
-        cpct_scanKeyboard_f();
-        if (cpct_isKeyPressed(Key_Space)) {
-            if (showCapsuleDocs()) return 1;
-            break;
-        }
-        if (cpct_isKeyPressed(Key_Esc)) return 1;
+    for (i = 0; i < 5; i++) {
+        drawCustomText(GET_STR(ids[i][0]), 18, 60 + i * 16, PLT_BRIGHT_WHITE);
+        drawCustomText(GET_STR(ids[i][1]), 42, 60 + i * 16, PLT_BRIGHT_YELLOW);
     }
-    return 0;
+
+    if (updateMenuLoop(1)) return 1;
+    return showCapsuleDocs();
 }
 
 // Humorous capsule documentation screen.
 u8 showCapsuleDocs() {
-    u8 page;
+    u8 page, i, idx;
+    const u8 capsule_colors[] = {
+        PLT_BRIGHT_RED, PLT_BRIGHT_YELLOW, PLT_BRIGHT_GREEN, PLT_BRIGHT_WHITE, // L, S, C, P
+        PLT_CYAN, PLT_BRIGHT_CYAN, PLT_BRIGHT_MAGENTA, PLT_BRIGHT_BLUE,        // B, E, M, I
+        PLT_MAUVE, PLT_BRIGHT_CYAN, PLT_MAUVE, PLT_ORANGE,                     // U, A, D, V
+        PLT_BRIGHT_RED, PLT_BRIGHT_RED                                         // T, F
+    };
+
     for (page = 0; page < 2; page++) {
         cpct_memset((void*)0xC000, 0x00, 0x4000);
         initStarfield();
-
         drawCustomTextLargeCentered(GET_STR(STR_CAPSULE_GUIDE), 5, PLT_ORANGE);
         drawCustomTextCentered(GET_STR(STR_CLUELESS), 17, PLT_ORANGE);
         
-        if (page == 0) {
-            // Page 1: L, S, C, P, B, E, M, I
-            cpct_drawSprite(powerup_sprites[0],  cpct_getScreenPtr((void*)0xC000, 8, 35), 3, 11);
-            drawCustomText(GET_STR(STR_L_DESC), 16, 37, PLT_BRIGHT_RED);
-            cpct_drawSprite(powerup_sprites[1],  cpct_getScreenPtr((void*)0xC000, 8, 52), 3, 11);
-            drawCustomText(GET_STR(STR_S_DESC), 16, 54, PLT_BRIGHT_YELLOW);
-            cpct_drawSprite(powerup_sprites[2],  cpct_getScreenPtr((void*)0xC000, 8, 69), 3, 11);
-            drawCustomText(GET_STR(STR_C_DESC), 16, 71, PLT_BRIGHT_GREEN);
-            cpct_drawSprite(powerup_sprites[3],  cpct_getScreenPtr((void*)0xC000, 8, 86), 3, 11);
-            drawCustomText(GET_STR(STR_P_DESC), 16, 88, PLT_BRIGHT_WHITE);
-            cpct_drawSprite(powerup_sprites[4],  cpct_getScreenPtr((void*)0xC000, 8, 103), 3, 11);
-            drawCustomText(GET_STR(STR_B_DESC), 16, 105, PLT_CYAN);
-            cpct_drawSprite(powerup_sprites[5],  cpct_getScreenPtr((void*)0xC000, 8, 120), 3, 11);
-            drawCustomText(GET_STR(STR_E_DESC), 16, 122, PLT_BRIGHT_CYAN);
-            cpct_drawSprite(powerup_sprites[6],  cpct_getScreenPtr((void*)0xC000, 8, 137), 3, 11);
-            drawCustomText(GET_STR(STR_M_DESC), 16, 139, PLT_BRIGHT_MAGENTA);
-            cpct_drawSprite(powerup_sprites[7],  cpct_getScreenPtr((void*)0xC000, 8, 154), 3, 11);
-            drawCustomText(GET_STR(STR_I_DESC), 16, 156, PLT_BRIGHT_CYAN);
-        } else {
-            // Page 2: U, A, D, V, T, G, X
-            cpct_drawSprite(powerup_sprites[8],  cpct_getScreenPtr((void*)0xC000, 8, 35), 3, 11);
-            drawCustomText(GET_STR(STR_U_DESC), 16, 37, PLT_MAUVE);
-            cpct_drawSprite(powerup_sprites[9],  cpct_getScreenPtr((void*)0xC000, 8, 52), 3, 11);
-            drawCustomText(GET_STR(STR_A_DESC), 16, 54, PLT_BRIGHT_GREEN);
-            cpct_drawSprite(powerup_sprites[10], cpct_getScreenPtr((void*)0xC000, 8, 69), 3, 11);
-            drawCustomText(GET_STR(STR_D_DESC), 16, 71, PLT_MAUVE);
-            cpct_drawSprite(powerup_sprites[11], cpct_getScreenPtr((void*)0xC000, 8, 86), 3, 11);
-            drawCustomText(GET_STR(STR_V_DESC), 16, 88, PLT_ORANGE);
-            cpct_drawSprite(powerup_sprites[12], cpct_getScreenPtr((void*)0xC000, 8, 103), 3, 11);
-            drawCustomText(GET_STR(STR_T_DESC), 16, 105, PLT_BRIGHT_RED);
-            cpct_drawSprite(powerup_sprites[13], cpct_getScreenPtr((void*)0xC000, 8, 120), 3, 11);
-            drawCustomText(GET_STR(STR_G_DESC), 16, 122, PLT_GREEN);
-            cpct_drawSprite(powerup_sprites[14], cpct_getScreenPtr((void*)0xC000, 8, 137), 3, 11);
-            drawCustomText(GET_STR(STR_F_DESC), 16, 139, PLT_BRIGHT_RED);
+        for (i = 0; i < 8; i++) {
+            idx = page * 8 + i;
+            if (idx >= NUM_POWERUP_SPRITES) break;
+            cpct_drawSprite(powerup_sprites[idx], cpct_getScreenPtr((void*)0xC000, 8, 40 + i * 17), 3, 11);
+            drawCustomText(GET_STR(STR_L_DESC + idx), 16, 42 + i * 17, capsule_colors[idx]);
         }
 
-
-
-        while (1) {
-            cpct_waitVSYNC();
-            updateStarfield();
-            cpct_scanKeyboard_f();
-            if (cpct_isKeyPressed(Key_Space)) break;
-            if (cpct_isKeyPressed(Key_Esc)) return 1;
-        }
-        // Wait for release
-        while (cpct_isKeyPressed(Key_Space)) {
-            cpct_waitVSYNC();
-            cpct_scanKeyboard_f();
-        }
+        if (updateMenuLoop(1)) return 1;
+        // Wait for release to avoid skipping pages too fast
+        while (cpct_isKeyPressed(Key_Space)) { cpct_waitVSYNC(); cpct_scanKeyboard_f(); }
     }
     return 0;
 }
@@ -3186,12 +3153,7 @@ void showPlayerStart(u8 p) {
     drawCustomTextLargeCentered(str, 80, PLT_BRIGHT_YELLOW);
 
 
-    while (1) {
-        cpct_waitVSYNC();
-        updateStarfield();
-        cpct_scanKeyboard_f();
-        if (cpct_isKeyPressed(Key_Space) || (g_use_joystick && cpct_isKeyPressed(Joy0_Fire1))) break;
-    }
+    updateMenuLoop(0);
     
     // Clear screen before starting
     cpct_memset((void*)0xC000, 0x00, 0x4000);
@@ -3237,7 +3199,7 @@ u8 showLevelSelect() {
         
         if (cpct_isKeyPressed(Key_Esc)) return 1;
 
-        if (cpct_isKeyPressed(g_key_left) || (g_use_joystick && cpct_isKeyPressed(Joy0_Left))) {
+        if (cpct_isKeyPressed(g_key_left) || cpct_isKeyPressed(Joy0_Left)) {
             if (!joyLR_pressed) {
                 if (selection > 0) selection--;
                 else selection = NUM_LEVELS - 1;
@@ -3245,7 +3207,7 @@ u8 showLevelSelect() {
                 dirty = 1;
             }
         } 
-        else if (cpct_isKeyPressed(g_key_right) || (g_use_joystick && cpct_isKeyPressed(Joy0_Right))) {
+        else if (cpct_isKeyPressed(g_key_right) || cpct_isKeyPressed(Joy0_Right)) {
             if (!joyLR_pressed) {
                 if (selection < NUM_LEVELS - 1) selection++;
                 else selection = 0;
@@ -3257,11 +3219,11 @@ u8 showLevelSelect() {
             joyLR_pressed = 0;
         }
 
-        if (cpct_isKeyPressed(g_key_fire) || (g_use_joystick && cpct_isKeyPressed(Joy0_Fire1))) {
+        if (cpct_isKeyPressed(g_key_fire) || cpct_isKeyPressed(Joy0_Fire1)) {
             current_level = selection;
             
             // Wait for release
-            while (cpct_isKeyPressed(g_key_fire) || (g_use_joystick && cpct_isKeyPressed(Joy0_Fire1))) {
+            while (cpct_isKeyPressed(g_key_fire) || cpct_isKeyPressed(Joy0_Fire1)) {
                 cpct_waitVSYNC();
                 cpct_scanKeyboard_f();
             }
@@ -3340,7 +3302,7 @@ void main(void) {
     g_key_fire  = (u16)Key_Space;
     g_key_pause = (u16)Key_Esc;
     g_key_music = (u16)Key_M;
-    g_use_joystick = 0;
+    // g_use_joystick removed
 
     // Register the custom ISR so the music plays automatically in the background
     cpct_setInterruptHandler(music_isr);
@@ -3364,8 +3326,12 @@ void main(void) {
         game_won = 0;
         initGame();
         
-        drawBackground();
-        drawHUD();
+        if (num_players == 2) {
+            showPlayerStart(current_player);
+        } else {
+            drawBackground();
+            drawHUD();
+        }
 
         // Inner play loop: runs until all lives are gone or game is won
         while (lives > 0 && !game_won) {
