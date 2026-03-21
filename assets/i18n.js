@@ -112,6 +112,28 @@ const translations = {
         downloadTitle: "DESCARREGAR DSK",
         downloadText: "Porta't el joc al teu emulador favorit.",
         downloadBtn: "DESCARREGAR .DSK"
+    },
+    pt: {
+        title: "Brick Blaster",
+        subtitle: "MISSAO DE RECUPERACAO DA VESPA",
+        controls: "CONTROLOS",
+        moveLeft: "ESQUERDA",
+        moveRight: "DIREITA",
+        fire: "DISPARO",
+        pause: "PAUSA",
+        music: "MUSICA",
+        storyTitle: "HISTORIA",
+        story1: "Era uma manha qualquer. Ia ao pao de Mafra, mas o <strong>Manuel o Marciano</strong> roubou-te a Vespa. Agora estas preso numa <strong>prisao espacial de tijolos</strong>.",
+        story2: "A tua arma: uma tabua de engomar e uma bola de tenis nuclear. ¡Recupera a mota e volta a tempo para o bacalhau!",
+        about: "SOBRE",
+        aboutText: "Bem-vindo ao <strong>Brick Blaster</strong>, um clone de Arkanoid de alta voltagem para o Amstrad CPC. Navega na tua nave, apanha power-ups e destroi tijolos.",
+        creditsCode: "CODIGO E GFX: ISSALIG",
+        creditsMusic: "MUSICA: ULTRASYD",
+        creditsPowered: "POTENCIADO PELA CPCTELERA",
+        creditsYear: "2026",
+        downloadTitle: "DESCARREGAR DSK",
+        downloadText: "Joga no teu emulador favorito.",
+        downloadBtn: "DESCARREGAR .DSK"
     }
 };
 
