@@ -22,7 +22,6 @@
   - **D** (Drunk): Inverts controls (Trap).
   - **V** (Velocity): Speeds up the ball (Trap).
   - **T** (Tiny): Shrinks paddle (Trap).
-  - **G** (Gravity): Increases vertical ball speed (Trap).
   - **F** (Fireball): Ball pierces through bricks without bouncing.
 - **Autonomous Demo Mode**: Watch the game play itself with fully automated AI-driven paddle and firing.
 - **Selectable Difficulty**: Choose between Easy, Normal, and Hard modes to suit your skill level.
@@ -35,12 +34,11 @@
 | :--- | :--- |
 | **O / Arrow Left** | Move Left |
 | **P / Arrow Right** | Move Right |
-| **SPACE** | Launch Ball / Fire Laser |
+| **SPACE** | Launch Ball / Fire Laser / Select Menu Option |
 | **ESC** | Pause / Back to Menu |
 | **M** | Toggle Music |
-| **0** | Enter Autonomous Demo Mode (from Menu) |
-| **3** | Cycle Difficulty Levels (from Menu) |
-| **H** | View Help / Power-ups |
+| **Up / Down** | Navigate Menu Options |
+| **Left / Right** | Adjust Difficulty (on Difficulty menu option) |
 | **Touch Buttons** | Move Left/Right and Fire (Web/Mobile only) |
 
 ## How to Build
