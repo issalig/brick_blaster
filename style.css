@@ -233,6 +233,11 @@ rvm-player {
     box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
 }
 
+.key-container {
+    display: flex;
+    gap: 0.5rem;
+}
+
 #rvmplayer {
     width: 100%;
     max-width: 800px;
