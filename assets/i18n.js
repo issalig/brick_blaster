@@ -5,7 +5,7 @@
 const translations = {
     es: {
         title: "Brick Blaster",
-        subtitle: "MISIÓN DE RECUPERACIÓN DE LA VESPA",
+        subtitle: "VESPA RECOVERY MISSION",
         controls: "CONTROLES",
         moveLeft: "MOVER IZQ",
         moveRight: "MOVER DER",
@@ -53,7 +53,7 @@ const translations = {
     },
     fr: {
         title: "Brick Blaster",
-        subtitle: "MISSION DE RÉCUPÉRATION DE LA VESPA",
+        subtitle: "VESPA RECOVERY MISSION",
         controls: "CONTRÔLES",
         moveLeft: "VERS LA GAUCHE",
         moveRight: "VERS LA DROITE",
@@ -173,7 +173,7 @@ function setLanguage(lang) {
     // Update download link
     const downloadLink = document.getElementById('download-link');
     if (downloadLink) {
-        downloadLink.href = `assets/brickb_${lang}.dsk`;
+        downloadLink.href = `assets/disks/brickb_${lang}.dsk`;
     }
 
     // Update iframe source to reload the emulator with the new language

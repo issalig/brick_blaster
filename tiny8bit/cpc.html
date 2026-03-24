@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>tiny8bit Amstrad CPC</title>
+    <style>
+        body { margin: 0; background-color: black; color: white; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #canvas { 
+            width: 100%; height: 100%; 
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    <script type="text/javascript">
+        var Module = {
+            canvas: (function() {
+                return document.getElementById('canvas');
+            })(),
+            print: (function() {
+                return function(text) { console.log(text); };
+            })(),
+            printErr: function(text) { console.error(text); },
+            preRun: [function() {
+                // Focus fix
+                window.focus();
+                document.body.addEventListener('click', function(e) {
+                    window.focus();
+                }, false);
+            }]
+        };
+
+        // Handle URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const file = urlParams.get('file');
+        const input = urlParams.get('input');
+        
+        // If file is provided, pass it as argument
+        if (file) {
+            Module['arguments'] = ['--file', file];
+        }
+        // If input is provided (e.g. run command), pass it as argument
+        if (input) {
+            Module['arguments'] = Module['arguments'] || [];
+            Module['arguments'].push('--input', input);
+        }
+    </script>
+    <script async type="text/javascript" src="cpc.js"></script>
+</body>
+</html>

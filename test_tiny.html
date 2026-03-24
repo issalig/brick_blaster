@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brick Blaster - tiny8bit Test</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="assets/i18n.js"></script>
+</head>
+
+<body>
+    <div class="starfield" id="starfield"></div>
+
+    <div class="container">
+        <div class="lang-switcher">
+            <button class="lang-btn" data-lang="es" onclick="setLanguage('es')">ES</button>
+            <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
+            <button class="lang-btn" data-lang="fr" onclick="setLanguage('fr')">FR</button>
+            <button class="lang-btn" data-lang="gr" onclick="setLanguage('gr')">GR</button>
+            <button class="lang-btn" data-lang="va" onclick="setLanguage('va')">VA</button>
+            <button class="lang-btn" data-lang="pt" onclick="setLanguage('pt')">PT</button>
+        </div>
+
+        <header>
+            <h1 data-i18n="title">Brick Blaster</h1>
+            <p class="subtitle" style="color: #00ff00;">(TINY8BIT TEST VERSION)</p>
+            <p class="subtitle" data-i18n="subtitle">VESPA RECOVERY MISSION</p>
+        </header>
+
+        <main class="emulator-wrapper">
+            <iframe id="emulator-frame" src="about:blank" frameborder="0" scrolling="no" allow="autoplay"></iframe>
+        </main>
+
+        <section class="info-panels">
+            <div class="panel">
+                <h3 data-i18n="controls">CONTROLS</h3>
+                <ul class="controls-list">
+                    <li>
+                        <span data-i18n="moveLeft">Move Left</span>
+                        <div class="key-container">
+                            <span class="key">O</span>
+                            <span class="key">&larr;</span>
+                        </div>
+                    </li>
+                    <li>
+                        <span data-i18n="moveRight">Move Right</span>
+                        <div class="key-container">
+                            <span class="key">P</span>
+                            <span class="key">&rarr;</span>
+                        </div>
+                    </li>
+                    <li>
+                        <span data-i18n="menuNav">Menu Nav</span>
+                        <div class="key-container">
+                            <span class="key">&uarr;</span>
+                            <span class="key">&darr;</span>
+                        </div>
+                    </li>
+                    <li>
+                        <span data-i18n="difficultyAdj">Difficulty Adj</span>
+                        <div class="key-container">
+                            <span class="key">&larr;</span>
+                            <span class="key">&rarr;</span>
+                        </div>
+                    </li>
+                    <li>
+                        <span data-i18n="fire">Fire / Action</span>
+                        <div class="key-container">
+                            <span class="key">SPACE</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            <div class="panel">
+                <h3 data-i18n="storyTitle">STORY</h3>
+                <p data-i18n="story1" style="line-height: 1.6; color: var(--text-secondary); margin-bottom: 1rem;">
+                    It was a normal morning. You went for bread, but <strong>Martin the Martian</strong> stole your
+                    scooter.
+                </p>
+            </div>
+        </section>
+
+        <footer class="credits-footer">
+            <span>EXPERIMENTAL TINY8BIT VERSION</span>
+            <span class="dot">•</span>
+            <span data-i18n="creditsYear">2026</span>
+        </footer>
+    </div>
+
+    <script>
+        const starfield = document.getElementById('starfield');
+        const starCount = 150;
+        for (let i = 0; i < starCount; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.width = Math.random() * 2 + 'px';
+            star.style.height = star.style.width;
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            star.style.animationDuration = Math.random() * 50 + 50 + 's';
+            star.style.opacity = Math.random();
+            star.style.animationDelay = -Math.random() * 100 + 's';
+            starfield.appendChild(star);
+        }
+
+        // Override original setLanguage to point to our new emulator
+        const originalSetLanguage = window.setLanguage;
+        window.setLanguage = function (lang) {
+            if (typeof i18n !== 'undefined' && i18n[lang]) {
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (i18n[lang][key]) el.innerHTML = i18n[lang][key];
+                });
+            }
+
+            // Map our DSK files
+            const dskMap = {
+                'es': 'assets/disks/brickb_es.dsk',
+                'en': 'assets/disks/brickb_en.dsk',
+                'fr': 'assets/disks/brickb_fr.dsk',
+                'gr': 'assets/disks/brickb_gr.dsk',
+                'va': 'assets/disks/brickb_va.dsk',
+                'pt': 'assets/disks/brickb_pt.dsk'
+            };
+
+            const dsk = dskMap[lang] || dskMap['en'];
+            const relDsk = '../' + dsk;
+            // Verified: \n works for execution. Using direct run of binary.
+            const bootCommand = 'RUN"DISC\n';
+            const encodedCommand = encodeURIComponent(bootCommand);
+
+            const frame = document.getElementById('emulator-frame');
+            frame.src = `tiny8bit/cpc.html?file=${relDsk}&input=${encodedCommand}`;
+        };
+
+        // Initial load
+        window.onload = () => {
+            setLanguage('es');
+        };
+    </script>
+</body>
+
+</html>
