@@ -5,7 +5,6 @@
 #include "lang.h"
 
 #ifdef LANG_VA
-static const u8 s_va_STR_GAME_MODE[] = "MODE DE JOC";
 static const u8 s_va_STR_1_PLAYER[] = "1 JUGADOR";
 static const u8 s_va_STR_2_PLAYERS[] = "2 JUGADORS";
 static const u8 s_va_STR_PRESS_H_HELP[] = "AJUDA";
@@ -21,7 +20,7 @@ static const u8 s_va_STR_PAUSE[] = "PAUSA";
 static const u8 s_va_STR_KEY_M[] = "M:";
 static const u8 s_va_STR_MUSIC[] = "MUSICA";
 static const u8 s_va_STR_CAPSULE_GUIDE[] = "GUIA DE CAPSULES";
-static const u8 s_va_STR_CLUELESS[] = "PELS DESPISTATS";
+static const u8 s_va_STR_CLUELESS[] = "PER ALS DESPISTATS";
 static const u8 s_va_STR_L_DESC[] = "AGRESIU";
 static const u8 s_va_STR_S_DESC[] = "A POC A POC";
 static const u8 s_va_STR_C_DESC[] = "TOT APEGALOS";
@@ -66,7 +65,7 @@ static const u8 s_va_STR_DIFFICULTY[] = "DIFICULTAT: ";
 
 
 const u8* const lang_va[STR_COUNT] = {
-    s_va_STR_GAME_MODE, s_va_STR_1_PLAYER, s_va_STR_2_PLAYERS, s_va_STR_PRESS_H_HELP, s_va_STR_CONTROLS, s_va_STR_KEY_LEFT, s_va_STR_MOVE_LEFT, s_va_STR_KEY_RIGHT, s_va_STR_MOVE_RIGHT,
+    s_va_STR_1_PLAYER, s_va_STR_2_PLAYERS, s_va_STR_PRESS_H_HELP, s_va_STR_CONTROLS, s_va_STR_KEY_LEFT, s_va_STR_MOVE_LEFT, s_va_STR_KEY_RIGHT, s_va_STR_MOVE_RIGHT,
     s_va_STR_KEY_SPACE, s_va_STR_FIRE, s_va_STR_KEY_ESC, s_va_STR_PAUSE, s_va_STR_KEY_M, s_va_STR_MUSIC, s_va_STR_CAPSULE_GUIDE, s_va_STR_CLUELESS, s_va_STR_L_DESC, s_va_STR_S_DESC,
     s_va_STR_C_DESC, s_va_STR_P_DESC, s_va_STR_B_DESC, s_va_STR_E_DESC, s_va_STR_M_DESC, s_va_STR_I_DESC, s_va_STR_U_DESC, s_va_STR_A_DESC, s_va_STR_D_DESC,
     s_va_STR_V_DESC, s_va_STR_T_DESC, s_va_STR_F_DESC, s_va_STR_CONGRATS, s_va_STR_RECOVERED_MOTO, s_va_STR_NOW_GO_BREAD,

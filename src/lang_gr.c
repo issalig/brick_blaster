@@ -5,7 +5,6 @@
 #include "lang.h"
 #ifdef LANG_GR
 
-static const u8 s_gr_STR_GAME_MODE[] = "PAIXNIDIOY";
 static const u8 s_gr_STR_1_PLAYER[] = "1 PAIKTHS";
 static const u8 s_gr_STR_2_PLAYERS[] = "2 PAIKTES";
 static const u8 s_gr_STR_PRESS_H_HELP[] = "VOHTHEIA";
@@ -66,7 +65,7 @@ static const u8 s_gr_STR_DIFFICULTY[] = "DYSKOLIA: ";
 
 
 const u8* const lang_gr[STR_COUNT] = {
-    s_gr_STR_GAME_MODE, s_gr_STR_1_PLAYER, s_gr_STR_2_PLAYERS, s_gr_STR_PRESS_H_HELP, s_gr_STR_CONTROLS, s_gr_STR_KEY_LEFT, s_gr_STR_MOVE_LEFT, s_gr_STR_KEY_RIGHT, s_gr_STR_MOVE_RIGHT,
+    s_gr_STR_1_PLAYER, s_gr_STR_2_PLAYERS, s_gr_STR_PRESS_H_HELP, s_gr_STR_CONTROLS, s_gr_STR_KEY_LEFT, s_gr_STR_MOVE_LEFT, s_gr_STR_KEY_RIGHT, s_gr_STR_MOVE_RIGHT,
     s_gr_STR_KEY_SPACE, s_gr_STR_FIRE, s_gr_STR_KEY_ESC, s_gr_STR_PAUSE, s_gr_STR_KEY_M, s_gr_STR_MUSIC, s_gr_STR_CAPSULE_GUIDE, s_gr_STR_CLUELESS, s_gr_STR_L_DESC, s_gr_STR_S_DESC,
     s_gr_STR_C_DESC, s_gr_STR_P_DESC, s_gr_STR_B_DESC, s_gr_STR_E_DESC, s_gr_STR_M_DESC, s_gr_STR_I_DESC, s_gr_STR_U_DESC, s_gr_STR_A_DESC, s_gr_STR_D_DESC,
     s_gr_STR_V_DESC, s_gr_STR_T_DESC, s_gr_STR_F_DESC, s_gr_STR_CONGRATS, s_gr_STR_RECOVERED_MOTO, s_gr_STR_NOW_GO_BREAD,

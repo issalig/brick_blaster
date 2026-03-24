@@ -5,7 +5,6 @@
 #include "lang.h"
 
 #ifdef LANG_ES
-static const u8 s_es_STR_GAME_MODE[] = "MODO DE JUEGO";
 static const u8 s_es_STR_1_PLAYER[] = "1 JUGADOR";
 static const u8 s_es_STR_2_PLAYERS[] = "2 JUGADORES";
 static const u8 s_es_STR_PRESS_H_HELP[] = "AYUDA";
@@ -45,7 +44,7 @@ static const u8 s_es_STR_EAT_SANDWICH[] = "Y COMERTE UN BOCATA";
 static const u8 s_es_STR_SQUID_BOCATA[] = "DE CALAMARES.";
 static const u8 s_es_STR_GAME_OVER[] = "GAME OVER";
 static const u8 s_es_STR_NO_MOTO_NO_EAT[] = "SIN MOTO Y SIN COMER";
-static const u8 s_es_STR_GAME_OVER_SUB2[] = "VUELVE A JUGAR PARA CONSEGUIR TU PAPEO";
+static const u8 s_es_STR_GAME_OVER_SUB2[] = "VUELVE A JUGAR SI QUIERES PAPEO";
 static const u8 s_es_STR_STORY_1[] = "ERA UNA MAÑANA CUALQUIERA";
 static const u8 s_es_STR_STORY_2[] = "IBAS A COMPRAR EL PAN, PERO MARIANO";
 static const u8 s_es_STR_STORY_3[] = "EL MARCIANO TE ROBO LA VESPA.";
@@ -66,7 +65,7 @@ static const u8 s_es_STR_DIFFICULTY[] = "DIFICULTAD: ";
 
 
 const u8* const lang_es[STR_COUNT] = {
-    s_es_STR_GAME_MODE, s_es_STR_1_PLAYER, s_es_STR_2_PLAYERS, s_es_STR_PRESS_H_HELP, s_es_STR_CONTROLS, s_es_STR_KEY_LEFT, s_es_STR_MOVE_LEFT, s_es_STR_KEY_RIGHT, s_es_STR_MOVE_RIGHT,
+    s_es_STR_1_PLAYER, s_es_STR_2_PLAYERS, s_es_STR_PRESS_H_HELP, s_es_STR_CONTROLS, s_es_STR_KEY_LEFT, s_es_STR_MOVE_LEFT, s_es_STR_KEY_RIGHT, s_es_STR_MOVE_RIGHT,
     s_es_STR_KEY_SPACE, s_es_STR_FIRE, s_es_STR_KEY_ESC, s_es_STR_PAUSE, s_es_STR_KEY_M, s_es_STR_MUSIC, s_es_STR_CAPSULE_GUIDE, s_es_STR_CLUELESS, s_es_STR_L_DESC, s_es_STR_S_DESC,
     s_es_STR_C_DESC, s_es_STR_P_DESC, s_es_STR_B_DESC, s_es_STR_E_DESC, s_es_STR_M_DESC, s_es_STR_I_DESC, s_es_STR_U_DESC, s_es_STR_A_DESC, s_es_STR_D_DESC,
     s_es_STR_V_DESC, s_es_STR_T_DESC, s_es_STR_F_DESC, s_es_STR_CONGRATS, s_es_STR_RECOVERED_MOTO, s_es_STR_NOW_GO_BREAD,

@@ -58,14 +58,14 @@
 // Initial ball speed scalar (in FP_SCALE, so 128 = 2.0 pixels/frame)
 #define INITIAL_BALL_SPEED  150
 
-#define BRICK_ROWS          8
-#define BRICK_COLS          8
+#define BRICK_ROWS          10
+#define BRICK_COLS          10
 #define NUM_LEVELS          10
 #define BRICK_WIDTH_BYTES   7   // 14 pixels
 #define BRICK_HEIGHT        6   // Full sprite height
-#define BRICK_START_X       8   // Left margin
+#define BRICK_START_X       5   // Left margin centered in play area
 #define BRICK_START_Y       28  // Top margin
-#define BRICK_GAP_X         1   // 2 pixels gap
+#define BRICK_GAP_X         0   // 0 bytes gap (10 * 7 = 70 bytes)
 #define BRICK_GAP_Y         2   // Gap between rows
 
 // Power-up drop capsule dimensions
@@ -157,16 +157,23 @@ typedef struct {
 } ball_t;
 
 typedef struct {
-    u8 x, y;
-    u8 old_y;
-    u8 active;
-    u8 power_type;
-    u8 timer; // Frames until next move (throttles fall speed)
-} drop_t;
+    u8 x, y;      // Current position in screen coordinates
+    u8 old_y;     // Previous Y position for erase/redraw
+    u8 active;    // 1 if falling, 0 if inactive
+    u8 power_type;// Type of power-up (e.g., L for Laser, E for Enlarge)
+    u8 timer;     // Counter to throttle fall speed
+} drop_t; // Falling power-up capsule
 
 // Each shot fires a LEFT beam and a RIGHT beam that share the same Y position.
 // Treating them as one unit halves all loop iterations vs. individually tracked beams.
-typedef struct { u8 x_left; u8 x_right; u8 y; u8 old_y; u8 active; u8 needs_bg_repaint; } laser_pair_t;
+typedef struct {
+    u8 x_left;
+    u8 x_right;
+    u8 y;
+    u8 old_y;
+    u8 active;
+    u8 needs_bg_repaint;
+} laser_pair_t;
 
 typedef struct {
     u8 active;
@@ -208,6 +215,7 @@ laser_pair_t lasers[MAX_LASER_PAIRS];
 ball_t extra_balls[MAX_EXTRA_BALLS];
 enemy_t enemies[MAX_ENEMIES];
 boss_t boss;
+
 // --- Game State and Flags ---
 u8 brick_map[BRICK_ROWS][BRICK_COLS];
 u8 bricks[BRICK_ROWS][BRICK_COLS];
@@ -216,21 +224,20 @@ u8 current_level;
 u8 lives;
 u8 active_bricks;
 u16 score;
-u8 score_str[7] = "000000";
+u8 score_str[7];
 u8 hud_dirty;     // 1 = HUD needs redraw this frame (score/lives/level changed)
 u8 paused;        // 1 = game is paused
 u8 music_on;      // 1 = music+sfx playing, 0 = muted (M key toggle)
 
 // --- 2-Player Mode Globals ---
 player_state_t players[2];
-u8 num_players = 1;     // 1 or 2
-u8 current_player = 0;  // 0 or 1
-u8 level_cleared = 0;   // Global flag to trigger level transition
+u8 num_players;     // 1 or 2
+u8 current_player;  // 0 or 1
+u8 level_cleared;   // Global flag to trigger level transition
 
 // --- Input and Edge Detection ---
 u8 key_m_held;    // Edge detection for M key
 u8 key_esc_held;  // Edge detection for ESC key (Toggle pause)
-u8 key_3_held;    // Edge detection for difficulty toggle
 
 // --- Power-up States ---
 u8 glue_active;   // 1 = next paddle hit sticks the ball
@@ -245,13 +252,10 @@ u16 autopilot_timer; // duration of autopilot
 u8 laser_active;       // Power-up flag
 u8 laser_fire_timer;   // Rate-limiter (~0.3s between bursts)
 u8 drunk_active;     // 1 = controls inverted (D trap)
-// u8 gravity_active;   // REMOVED
 u8 fireball_active;  // 1 = ball pierces bricks (F benefit)
 u8 victory_walk;     // 1 = boss dead, just walk to exit
 u16 victory_palette_timer;
 u8 victory_palette_offset;
-u8 ghost_timer;      // internal timer for ghost
-u8 ghost_period = 8; // period for ghost blinking
 u8 fast_active;      // 1 = ball is extra fast (V trap)
 u8 tiny_active;      // 1 = paddle is tiny (T trap)
 u8 door_open;        // 1 = exit door is open
@@ -261,17 +265,9 @@ u8 door_anim_frame;
 u8 door_anim_timer;
 u8 demo_mode;         // 1 = automated demo mode
 u8 demo_fire_timer;   // for auto-firing lasers
-u8 demo_launch_timer; // for auto-launching ball
-u8 game_difficulty = 1; // 0=Easy, 1=Normal, 2=Hard
-u8 launch_timer;  // Counts down from 250 (5s at 50Hz); ball auto-launches at 0
-u8 game_won;      // 1 = player defeated the boss
-
-// --- Redefinable Controls ---
-u16 g_key_left  = Key_CursorLeft;
-u16 g_key_right = Key_CursorRight;
-u16 g_key_fire  = (u16)Key_Space;
-u16 g_key_pause = (u16)Key_Esc;
-u16 g_key_music = (u16)Key_M;
+u8 game_difficulty;   // 0=Easy, 1=Normal, 2=Hard
+u8 launch_timer;      // Counts down from 250 (5s at 50Hz); ball auto-launches at 0
+u8 game_won;          // 1 = player defeated the boss
 
 // Pre-computed background rows for blazing fast rendering without stack allocation overhead
 u8 bg_row_cache[8][80];
@@ -381,7 +377,7 @@ u8 enemy_spawn_threshold;
 
 // =========================================================================
 // GAME PALETTE MAPPING (Mode 0: 16 colors)
-// This is perfectly synced with the 'chars' mapping in Python scripts.
+// Synced with the 'chars' mapping in Python scripts.
 // =========================================================================
 //  0: '.' -> HW_BLACK          (Backgrounds and transparent pixel empty space)    #000000
 //  1: 'B' -> HW_BRIGHT_BLUE    (Paddle border / neon grid patterns)               #0000FF
@@ -462,107 +458,138 @@ u8 drop_erase_y;
 #define NP(c,p) BRICK(BTYPE_NORMAL, c, p) // Normal brick with power-up
 #define G(c) BRICK(BTYPE_GOLD, c, 0)    // Gold brick, color c
 
-const u8 level_data[NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
+const u8 level_data [NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
     { // Level 1: "The Wall" - Simple first level
-        { _,    _,    _,    _,    _,    _,    _,    _    },
-        { _,    N(0), N(1), N(2), N(2), N(1), N(0), _    },
-        { _,    N(0), N(1), N(3), N(3), N(1), N(0), _    },
-        { _,    _,    _,    _,    _,    _,    _,    _    },
-        { _,    N(0), N(1), N(3), N(3), N(1), N(0), _    },
-        { _,    N(0), N(1), N(2), N(2), N(1), N(0), _    },
+        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        { N(0),N(0),    N(0), N(1), N(2), N(2), N(1), N(0), N(0),N(0) },
+        { N(0),N(0),    N(0), N(1), N(2), N(2), N(1), N(0), N(0),N(0) },
+        { N(0),N(0),    N(0), N(1), N(3), N(3), N(1), N(0), N(0),N(0) },
+        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        { N(0),N(0),    N(0), N(1), N(3), N(3), N(1), N(0), N(0),N(0) },
+        { N(0),N(0),    N(0), N(1), N(2), N(2), N(1), N(0), N(0),N(0) },
+        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ }
     },
 
     { // Level 2: "The Vault" - Hard shell with hidden Laser and Expand
-        { H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3) },
-        { H(3), N(0), N(1), N(2), N(3), N(0), N(0), H(3) },
-        { H(3), N(1), NP(2, BPOWER_LASER), N(3), N(0), N(0), N(1), H(3) },
-        { H(3), N(2), _,    _,    _,    _,    N(2), H(3) },
-        { H(3), N(3), _,    _,    _,    _,    N(3), H(3) },
-        { H(3), N(0), N(0), NP(1, BPOWER_EXPAND), N(2), N(3), N(0), H(3) },
-        { H(3), N(0), N(1), N(2), N(3), N(0), N(0), H(3) },
-        { H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3) },
+        { _,    H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3), _ },
+        { _,    H(3), N(0), N(1), N(2), N(3), N(0), N(0), H(3), _ },
+        { _,    H(3), N(0), N(1), N(2), N(3), N(0), N(0), H(3), _ },
+        { _,    H(3), N(1), N(2), N(3), N(0), N(0), N(1), H(3), _ },
+        { _,    H(3), N(2), _,    _,    _,    _,    N(2), H(3), _ },
+        { _,    H(3), N(3), _,    _,    _,    _,    N(3), H(3), _ },
+        { _,    H(3), N(0), N(0), N(1), N(2), N(3), N(0), H(3), _ },
+        { _,    H(3), N(0), N(1), N(2), N(3), N(0), N(0), H(3), _ },
+        { _,    H(3), N(0), N(1), N(2), N(3), N(0), N(0), H(3), _ },
+        { _,    H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3), _ }
     },
+
     { // Level 3: "Space Invader" - Tribute to the classic arcade icon
-        { _,    _,    N(2), N(2), N(2), N(2), _,    _    },
-        { _,    N(2), N(2), N(2), N(2), N(2), N(2), _    },
-        { N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2) },
-        { N(2), N(2), _,    N(2), N(2), _,    N(2), N(2) },
-        { N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2) },
-        { _,    _,    N(2), NP(1, BPOWER_MULTI), NP(1, BPOWER_MULTI), N(2), _,    _   },
-        { _,    N(2), _,    NP(2, BPOWER_ICE), NP(2, BPOWER_MAGNET), _,    N(2), _    },
-        { N(2), _,    _,    _,    _,    _,    _,    N(2) },
+        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        { _,    _,    _,    N(2), N(2), N(2), N(2), _,    _,    _ },
+        { _,    _,    N(2), N(2), N(2), N(2), N(2), N(2), _,    _ },
+        { _,    N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2), _ },
+        { _,    N(2), N(2), _,    N(2), N(2), _,    N(2), N(2), _ },
+        { _,    N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2), _ },
+        { _,    _,    _,    N(2), N(1), N(1), N(2), _,    _,    _ },
+        { _,    _,    N(2), _,    N(2), N(2), _,    N(2), _,    _ },
+        { _,    N(2), _,    _,    _,    _,    _,    _,    N(2), _ },
+        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ }
     },
+
     { // Level 4: "The Hourglass" - Tight squeeze
-        { N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2) },
-        { _,    N(1), N(1), N(1), N(1), N(1), N(1), _    },
-        { _,    _,    H(3), N(0), N(0), H(3), _,    _    },
-        { _,    _,    _,    NP(0, BPOWER_LASER), NP(0, BPOWER_LASER), _,    _,    _    },
-        { _,    _,    H(3), N(0), N(0), H(3), _,    _    },
-        { _,    N(1), N(1), N(1), N(1), N(1), N(1), _    },
-        { N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2) },
+        { N(3), N(3), N(3), N(3), N(3), N(3), N(3), N(3), N(3), N(3) },
+        {    _, N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2),    _ },
+        {    _,    _, N(1), N(1), N(1), N(1), N(1), N(1),    _,    _ },
+        {    _,    _,    _, H(3), N(0), N(0), H(3),    _,    _,    _ },
+        {    _,    _,    _,    _, N(0), N(0),    _,    _,    _,    _ },
+        {    _,    _,    _, H(3), N(0), N(0), H(3),    _,    _,    _ },
+        {    _,    _, N(1), N(1), N(1), N(1), N(1), N(1),    _,    _ },
+        {    _, N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2),    _ },
+        { N(3), N(3), N(3), N(3), N(3), N(3), N(3), N(3), N(3), N(3) },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ }
     },
+
     { // Level 5: "The Diamond"
-        { _,    _,    _,    H(3), H(3), _,    _,    _    },
-        { _,    _,    N(0), H(3), H(3), N(0), _,    _    },
-        { _,    N(1), N(1), H(3), H(3), N(1), N(1), _    },
-        { N(2), N(2), N(2), G(3), G(3), NP(2, BPOWER_DRUNK), N(2), N(2) },
-        { N(3), N(3), N(3), G(3), G(3), N(3), N(3), N(3) },
-        { _,    N(0), N(0), H(3), H(3), N(0), N(0), _    },
-        { _,    _,    N(1), H(3), H(3), N(1), _,    _    },
-        { _,    _,    _,    H(3), H(3), _,    _,    _    },
+        {    _,    _,    _,    _, N(0), N(0),    _,    _,    _,    _ },
+        {    _,    _,    _, N(2), H(3), H(3), N(2),    _,    _,    _ },
+        {    _,    _, N(0), N(0), H(3), H(3), N(0), N(0),    _,    _ },
+        {    _, N(2), N(0), N(1), H(3), H(3), N(1), N(0), N(2),    _ },
+        { N(1), N(2), N(2), N(2), G(3), G(3), N(2), N(2), N(2), N(1) },
+        { N(1), N(3), N(3), N(3), G(3), G(3), N(3), N(3), N(3), N(1) },
+        {    _, N(0), N(0), N(0), H(3), H(3), N(0), N(0), N(0),    _ },
+        {    _,    _, N(0), N(1), H(3), H(3), N(1), N(0),    _,    _ },
+        {    _,    _,    _, N(2), H(3), H(3), N(2),    _,    _,    _ },
+        {    _,    _,    _,    _, N(0), N(0),    _,    _,    _,    _ }
     },
+
     { // Level 6: "The Beer Mug" - Refreshing mid-game snack
-        { H(0),    H(0),  H(0),  H(0),  H(0),  _,    _,    _    }, // Foam (Hard/White)
-        { H(0),    H(0),  H(0),  H(0),  H(0),  _,    _,    _    }, // Foam (Hard/White)
-        { N(1),    N(1),  N(1),  N(1),  N(1),  H(0), H(0), _    }, // Beer + Handle top
-        { N(1),    NP(1, BPOWER_DRUNK),  N(1),  N(1),  N(1),  _,    H(0), _    }, // Beer + Handle middle
-        { N(1),    NP(1, BPOWER_ICE), N(1), N(1), N(1), H(0), H(0), _    }, // Beer + Handle bottom
-        { N(1),    N(1),  N(1),  N(1),  N(1),  _,    _,    _    }, // Beer
-        { N(1),    N(1),  N(1),  N(1),  N(1),  _,    _,    _    }, // Beer
-        { H(0),    H(0),  H(0),  H(0),  H(0),  _,    _,    _    }, // Mug base
+        { _,    H(0), H(0), H(0), H(0), H(0), _,    _,    _,    _ },
+        { _,    H(0), H(0), H(0), H(0), H(0), _,    _,    _,    _ },
+        { _,    N(1), N(1), N(1), N(1), N(1), H(0), H(0), _,    _ },
+        { _,    N(1), N(1), N(1), N(1), N(1), _,    H(0), _,    _ },
+        { _,    N(1), N(1), N(1), N(1), N(1), _,    H(0), _,    _ },
+        { _,    N(1), N(1), N(1), N(1), N(1), H(0), H(0), _,    _ },
+        { _,    N(1), N(1), N(1), N(1), N(1), _,    _,    _,    _ },
+        { _,    N(1), N(1), N(1), N(1), N(1), _,    _,    _,    _ },
+        { _,    N(1), N(1), N(1), N(1), N(1), _,    _,    _,    _ },
+        { _,    H(0), H(0), H(0), H(0), H(0), _,    _,    _,    _ }        
     },
+
     { // Level 7: "The Triangle"
-        { N(0), _,    _,    _,    _,    _,    _,    _    },
-        { N(1), N(1), _,    _,    _,    _,    _,    _    },
-        { N(2), N(2), N(2), _,    _,    _,    _,    _    },
-        { N(3), N(3), N(3), NP(3, BPOWER_MULTI), _, _, _, _ },
-        { N(0), N(0), N(0), N(0), N(0), _,    _,    _    },
-        { N(1), N(1), N(1), N(1), N(1), NP(1, BPOWER_LASER), _, _ },
-        { N(2), NP(2, BPOWER_ICE), NP(2, BPOWER_MAGNET), N(2), N(2), N(2), N(2), _    },
-        { H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3) },
+        { N(0),    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        { N(1), N(1),    _,    _,    _,    _,    _,    _,    _,    _ },
+        { N(2), N(2), N(2),    _,    _,    _,    _,    _,    _,    _ },
+        { N(3), N(3), N(3), N(3),    _,    _,    _,    _,    _,    _ },
+        { N(0), N(0), N(0), N(0), N(0),    _,    _,    _,    _,    _ },
+        { N(1), N(1), N(1), N(1), N(1), N(1),    _,    _,    _,    _ },
+        { N(2), N(2), N(2), N(2), N(2), N(2), N(2),    _,    _,    _ },
+        { N(3), N(3), N(3), N(3), N(3), N(3), N(3), N(3),    _,    _ },
+        { N(0), N(0), N(0), N(0), N(0), N(0), N(0), N(0), N(0),    _ },
+        { H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3) }
     },
+
     { // Level 8: "The Checkerboard" - A classic geometric challenge
-        { N(1), _,    N(2), _,    N(3), _,    NP(0, BPOWER_ICE), H(0)    },
-        { H(0),    NP(1, BPOWER_MAGNET), _,    N(2), _,    N(3), _,    N(0) },
-        { N(2), _,    NP(3, BPOWER_GLUE), _,    N(0), _,    N(1), H(0)    },
-        { H(0),    N(2), _,    N(3), _,    N(0), _,    N(1) },
-        { N(3), _,    N(0), _,    N(1), _,    NP(2, BPOWER_MULTI), H(0)    },
-        { H(0),    N(3), _,    N(0), _,    N(1), _,    N(2) },
-        { N(0), _,    N(1), _,    N(2), _,    NP(3, BPOWER_ICE), H(0)    },
-        { H(0),    NP(0, BPOWER_MAGNET), _,    N(1), _,    N(2), _,    N(3) },
+        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        { _,    N(1), _,    N(2), _,    N(3), _,    N(0), H(0), _ },
+        { _,    H(0), N(1), _,    N(2), _,    N(3), _,    N(0), _ },
+        { _,    N(2), _,    N(3), _,    N(0), _,    N(1), H(0), _ },
+        { _,    H(0), N(2), _,    N(3), _,    N(0), _,    N(1), _ },
+        { _,    N(3), _,    N(0), _,    N(1), _,    N(2), H(0), _ },
+        { _,    H(0), N(3), _,    N(0), _,    N(1), _,    N(2), _ },
+        { _,    N(0), _,    N(1), _,    N(2), _,    N(3), H(0), _ },
+        { _,    H(0), N(0), _,    N(1), _,    N(2), _,    N(3), _ },
+        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ }
     },
+
     { // Level 9: "Pacman" - Waka waka
-        { _,    _,    N(1), N(1), N(1), N(1), _,    _    },
-        { _,    N(1), N(1), N(1), N(1), H(1), N(1), _    },
-        { N(1), N(1), N(1), N(1), N(1), N(1), N(1), _    },
-        { N(1), N(1), N(1), N(1), N(1), N(1), _,    _    },
-        { NP(1, BPOWER_TINY), N(1), N(1), NP(1, BPOWER_ICE), _,    _,    _,    _    },
-        { N(1), N(1), N(1), N(1), N(1), N(1), _,    _    },
-        { _,    N(1), N(1), N(1), N(1), N(1), N(1), _    },
-        { _,    _,    N(1), NP(1, BPOWER_DRUNK), N(1), N(1), _,    _    },
+        {    _,    _,    _, N(1), N(1), N(1), N(1),    _,    _,    _ },
+        {    _,    _, N(1), N(1), N(1), N(1), N(1), N(1),    _,    _ },
+        {    _, N(1), N(1), N(1), N(1), N(1), H(1), N(1), N(1),    _ },
+        {    _, N(1), N(1), N(1), N(1), N(1), N(1), N(1),    _,    _ },
+        {    _, N(1), N(1), N(1), N(1), N(1), N(1),    _,    _,    _ },
+        {    _, N(1), N(1), N(1), N(1), N(1),    _,    _,    _,    _ },
+        {    _, N(1), N(1), N(1), N(1), N(1), N(1), N(1),    _,    _ },
+        {    _, N(1), N(1), N(1), N(1), N(1), N(1), N(1), N(1),    _ },
+        {    _,    _, N(1), N(1), N(1), N(1), N(1), N(1),    _,    _ },
+        {    _,    _,    _, N(1), N(1), N(1), N(1),    _,    _,    _ }
     },
+
     { // Level 10: "The Boss Room"
-        // Top 3 rows empty for boss movement
-        { _,    _,    _,    _,    _,    _,    _,    _    },
-        { _,    _,    _,    _,    _,    _,    _,    _    },
-        { _,    _,    _,    _,    _,    _,    _,    _    },
-        { _,    _,    _,    _,    _,    _,    _,    _    },
-        { _,    _,    _,    _,    _,    _,    _,    _    },
-        { _,    _,    _,    _,    _,    _,    _,    _    },
-        { _,    _,    _,    _,    _,    _,    _,    _    },
-        { _,    _,    _,    _,    _,    _,    _,    _    },
+        { _, _, _, _, _, _, _, _, _, _ },
+        { _, _, _, _, _, _, _, _, _, _ },
+        { _, _, _, _, _, _, _, _, _, _ },
+        { _, _, _, _, _, _, _, _, _, _ },
+        { _, _, _, _, _, _, _, _, _, _ },
+        { _, _, _, _, _, _, _, _, _, _ },
+        { _, _, _, _, _, _, _, _, _, _ },
+        { _, _, _, _, _, _, _, _, _, _ },
+        { _, _, _, _, _, _, _, _, _, _ },
+        { _, _, _, _, _, _, _, _, _, _ }
     },
 };
+
 
 // Undefine shortcut macros to avoid polluting the namespace
 #undef _
@@ -807,7 +834,6 @@ void applyPowerup(u8 ptype) {
         tiny_active = 1;
     } else if (ptype == BPOWER_FIREBALL) {
         fireball_active = 1;
-        ghost_timer = 0;
     } else if (ptype == BPOWER_LASER) {
         laser_active = 1;
         // Clean up any still-flying lasers from the old laser pickup
@@ -922,7 +948,7 @@ void updateLasers() {
                     lasers[i].active = 0;
                     score += 50;
                     hud_dirty = 1;
-                    cpct_akp_SFXPlay(13, 15, 48, 0, 0, AY_CHANNEL_ALL);
+                    cpct_akp_SFXPlay(13, 15, 36, 0, 0, AY_CHANNEL_ALL); // SFX: enemy killed by laser
                 }
             }
         }
@@ -1298,7 +1324,6 @@ void resetPowerups() {
     laser_fire_timer = 0;
     drunk_active = 0;
     fireball_active = 0;
-    ghost_timer = 0;
     fast_active = 0;
     freeze_active = 0;
     freeze_timer = 0;
@@ -1451,9 +1476,9 @@ void drawHUD() {
     {
         u8 l;
         u8 display_lives = (lives > 1) ? (lives - 1) : 0;
-        u8 max_lives_to_draw = (display_lives < 6) ? display_lives : 6; // Cap at 6 to stay in bounds
-        // Erase the full possible area first (6 lives * 7 bytes = 42 bytes wide, 6 lines high)
-        drawBackgroundRect(WALL_LEFT_BYTES + 1, 194, 45, 6);
+        u8 max_lives_to_draw = (display_lives < 4) ? display_lives : 4; // Cap at 4 to stay in bounds
+        // Erase the full possible area first (4 lives * 7 bytes = 28 bytes wide, plus buffer)
+        drawBackgroundRect(WALL_LEFT_BYTES + 1, 194, 30, 6);
         // Draw each life as a actual paddle sprite
         for (l = 0; l < max_lives_to_draw; l++) {
             cpct_drawSprite(paddle_sprite, cpct_getScreenPtr((void*)0xC000, WALL_LEFT_BYTES + 1 + (l * 7), 195), PADDLE_WIDTH_BYTES, PADDLE_HEIGHT);
@@ -1463,7 +1488,7 @@ void drawHUD() {
 
     // Draw "PAUSE" overlay in the center when paused.
     if (paused) {
-        drawCustomTextCentered(GET_STR(STR_PAUSE), 96, PLT_BRIGHT_RED);
+        drawCustomTextLargeCentered(GET_STR(STR_PAUSE), 96, PLT_BRIGHT_RED);
     }
 }
 
@@ -1615,8 +1640,8 @@ void updatePaddle() {
         }
     } else {
         // Check redefinable keys or joystick
-        u8 left_p = cpct_isKeyPressed(g_key_left) || cpct_isKeyPressed(Key_O) || cpct_isKeyPressed(Joy0_Left);
-        u8 right_p = cpct_isKeyPressed(g_key_right) || cpct_isKeyPressed(Key_P) || cpct_isKeyPressed(Joy0_Right);
+        u8 left_p = cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Key_O) || cpct_isKeyPressed(Joy0_Left);
+        u8 right_p = cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Key_P) || cpct_isKeyPressed(Joy0_Right);
         if (drunk_active) { u8 tmp = left_p; left_p = right_p; right_p = tmp; }
 
         if (left_p) {
@@ -1674,8 +1699,12 @@ void moveBall(ball_t *b) {
             u8 paddle_center = paddle.x + (paddle.width >> 1);
             if (b->x < paddle_center) {
                 b->fpos_x -= 48; // Stronger nudge left (~0.75 pixels)
+                if (b->fpos_x < WALL_LEFT_FP + 1) b->fpos_x = WALL_LEFT_FP + 1;
             } else {
                 b->fpos_x += 48; // Stronger nudge right
+                if (b->fpos_x + (b->width * FP_SCALE) >= WALL_RIGHT_FP) {
+                    b->fpos_x = WALL_RIGHT_FP - (b->width * FP_SCALE) - 1;
+                }
             }
         }
     }
@@ -1726,7 +1755,7 @@ void moveBall(ball_t *b) {
                 
                 score += 50;
                 hud_dirty = 1;
-                cpct_akp_SFXPlay(13, 15, 48, 0, 0, AY_CHANNEL_ALL); // SFX: enemy killed by ball
+                cpct_akp_SFXPlay(13, 15, 36, 0, 0, AY_CHANNEL_ALL); // SFX: enemy killed by ball
             }
         }
     }
@@ -1877,7 +1906,6 @@ hit:
     }
 }
 
-// ──────────────────────────────────────────────────────────────
 void flashBrick(u8 r, u8 c) {
     if (flash_count < MAX_FLASH) {
         flash_r[flash_count] = r;
@@ -1885,56 +1913,6 @@ void flashBrick(u8 r, u8 c) {
         flash_timer[flash_count] = 4; // 4 frames duration = 80ms
         flash_count++;
     }
-}
-
-// ──────────────────────────────────────────────────────────────
-void muteAY() {
-    __asm
-    ld b, #0xF4
-    ld a, #8
-    out (c), a
-    ld bc, #0xF6C0
-    out (c), c
-    ld bc, #0xF600
-    out (c), c
-    ld b, #0xF4
-    xor a
-    out (c), a
-    ld bc, #0xF680
-    out (c), c
-    ld bc, #0xF600
-    out (c), c
-    
-    ld b, #0xF4
-    ld a, #9
-    out (c), a
-    ld bc, #0xF6C0
-    out (c), c
-    ld bc, #0xF600
-    out (c), c
-    ld b, #0xF4
-    xor a
-    out (c), a
-    ld bc, #0xF680
-    out (c), c
-    ld bc, #0xF600
-    out (c), c
-
-    ld b, #0xF4
-    ld a, #10
-    out (c), a
-    ld bc, #0xF6C0
-    out (c), c
-    ld bc, #0xF600
-    out (c), c
-    ld b, #0xF4
-    xor a
-    out (c), a
-    ld bc, #0xF680
-    out (c), c
-    ld bc, #0xF600
-    out (c), c
-    __endasm;
 }
 
 void loseLife() {
@@ -2012,7 +1990,7 @@ void loseLife() {
 void updateLaserInput() {
     if (!laser_active) return;
     if (laser_fire_timer > 0) laser_fire_timer--;
-    if ((cpct_isKeyPressed(g_key_fire) || cpct_isKeyPressed(Joy0_Fire1)) && laser_fire_timer == 0) {
+    if ((cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) && laser_fire_timer == 0) {
         fireLaser();
         laser_fire_timer = 15;
     }
@@ -2035,7 +2013,7 @@ void updateBallOnPaddle() {
     if (glue_active) {
         // Glue mode: wait for glue_timer (set on paddle bounce), then auto-release
         if (glue_timer > 0) glue_timer--;
-        if (glue_timer == 0 || cpct_isKeyPressed(g_key_fire) || cpct_isKeyPressed(Joy0_Fire1) || (demo_mode && glue_timer < 100)) {
+        if (glue_timer == 0 || cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1) || (demo_mode && glue_timer < 100)) {
             glue_timer = 0;
             launch_timer = 250; // Reset for next ball
             ball.active = 1;
@@ -2045,7 +2023,7 @@ void updateBallOnPaddle() {
         }
     } else {
         // Normal mode: Fire OR auto-launch countdown reaching 0 OR demo auto-launch
-        if (cpct_isKeyPressed(g_key_fire) || cpct_isKeyPressed(Joy0_Fire1) || 
+        if (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1) || 
             launch_timer == 0 || (demo_mode && launch_timer < 150)) {
             launch_timer = 250; // Reset for next ball
             ball.active = 1;
@@ -2494,6 +2472,8 @@ void drawGame() {
             cpct_drawSprite(paddle_wide_sprite, pMem, paddle.width, paddle.height);
         } else if (paddle.width == PADDLE_WIDTH_TINY) {
             cpct_drawSprite(paddle_tiny_sprite, pMem, paddle.width, paddle.height);
+        } else if (laser_active) {
+            cpct_drawSprite(paddle_laser_sprite, pMem, paddle.width, paddle.height);
         } else {
             cpct_drawSprite(paddle_sprite, pMem, paddle.width, paddle.height);
         }
@@ -2518,7 +2498,6 @@ void drawGame() {
             cpct_drawSprite(fireball_active ? fireball_sprite : ball_sprite, pMem, ball.width, ball.height);
         }
     }
-    if (fireball_active) ghost_timer++;
     
     // Sync old coordinates to match what's on screen after drawing.
     ball.old_x = ball.x;
@@ -2615,8 +2594,8 @@ typedef struct {
     u8 speed; 
     u8 color;
     u8 is_drawn;
-} TStar;
-TStar stars[40];
+} star_t;
+star_t stars[40];
 
 void initStarfield() {
     u8 s, r;
@@ -2627,13 +2606,13 @@ void initStarfield() {
         r = rand8() % 100;
         if (r < 25) { 
             stars[s].speed = 3; 
-            stars[s].color = 0x0C; // White (PEN 2) for closest stars
+            stars[s].color = cpct_px2byteM0(PLT_BRIGHT_WHITE, PLT_BRIGHT_WHITE); // closest stars
         } else if (r < 60) { 
             stars[s].speed = 2; 
-            stars[s].color = 0x0F; // Cyan (PEN 10) for mid stars
+            stars[s].color = cpct_px2byteM0(PLT_CYAN, PLT_CYAN); // mid stars
         } else { 
             stars[s].speed = 1; 
-            stars[s].color = 0xC0; // Blue (PEN 1) for furthest stars
+            stars[s].color = cpct_px2byteM0(PLT_BRIGHT_BLUE, PLT_BRIGHT_BLUE); // furthest stars
         }
     }
 }
@@ -2681,6 +2660,12 @@ u8 updateMenuLoop(u8 canEsc) {
 }
 
 u8 showVictory() {
+    u8 i;
+    const u16 msg_ids[] = {
+        STR_RECOVERED_MOTO, STR_NOW_GO_BREAD, STR_NOW_GO_BREAD_2,
+        STR_EAT_SANDWICH, STR_SQUID_BOCATA
+    };
+
     cpct_memset((void*)0xC000, 0x00, 0x4000);
     initStarfield();
 
@@ -2688,11 +2673,9 @@ u8 showVictory() {
     drawCustomTextLargeCentered(GET_STR(STR_CONGRATS), 40, PLT_ORANGE); 
 
     // Draw funny comic messages in White (Small)
-    drawCustomTextCentered(GET_STR(STR_RECOVERED_MOTO), 70, PLT_BRIGHT_WHITE);
-    drawCustomTextCentered(GET_STR(STR_NOW_GO_BREAD), 90, PLT_BRIGHT_WHITE);
-    drawCustomTextCentered(GET_STR(STR_NOW_GO_BREAD_2), 105, PLT_BRIGHT_WHITE); 
-    drawCustomTextCentered(GET_STR(STR_EAT_SANDWICH), 125, PLT_BRIGHT_WHITE);
-    drawCustomTextCentered(GET_STR(STR_SQUID_BOCATA), 140, PLT_BRIGHT_WHITE);
+    for (i = 0; i < 5; i++) {
+        drawCustomTextCentered(GET_STR(msg_ids[i]), 70 + i * 18, PLT_BRIGHT_WHITE);
+    }
     
     // Silence audio
     if (music_on) cpct_akp_stop();
@@ -2855,6 +2838,7 @@ void updateEnemies() {
                 score += 50;
                 hud_dirty = 1;
                 enemies[i].active = 0;
+                cpct_akp_SFXPlay(13, 15, 36, 0, 0, AY_CHANNEL_ALL); // SFX: enemy killed by paddle
             }
         }
     }
@@ -3199,7 +3183,7 @@ u8 showLevelSelect() {
         
         if (cpct_isKeyPressed(Key_Esc)) return 1;
 
-        if (cpct_isKeyPressed(g_key_left) || cpct_isKeyPressed(Joy0_Left)) {
+        if (cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Joy0_Left)) {
             if (!joyLR_pressed) {
                 if (selection > 0) selection--;
                 else selection = NUM_LEVELS - 1;
@@ -3207,7 +3191,7 @@ u8 showLevelSelect() {
                 dirty = 1;
             }
         } 
-        else if (cpct_isKeyPressed(g_key_right) || cpct_isKeyPressed(Joy0_Right)) {
+        else if (cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Joy0_Right)) {
             if (!joyLR_pressed) {
                 if (selection < NUM_LEVELS - 1) selection++;
                 else selection = 0;
@@ -3219,11 +3203,11 @@ u8 showLevelSelect() {
             joyLR_pressed = 0;
         }
 
-        if (cpct_isKeyPressed(g_key_fire) || cpct_isKeyPressed(Joy0_Fire1)) {
+        if (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) {
             current_level = selection;
             
             // Wait for release
-            while (cpct_isKeyPressed(g_key_fire) || cpct_isKeyPressed(Joy0_Fire1)) {
+            while (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) {
                 cpct_waitVSYNC();
                 cpct_scanKeyboard_f();
             }
@@ -3236,17 +3220,18 @@ u8 showLevelSelect() {
 // ──────────────────────────────────────────────────────────────
 // Check and handle Pause (ESC) and Music (M) toggles with edge detection
 void handleGameToggles() {
-    u8 esc_now = cpct_isKeyPressed(g_key_pause);
-    u8 m_now   = cpct_isKeyPressed(g_key_music);
+    u8 esc_now = cpct_isKeyPressed(Key_Esc);
+    u8 m_now   = cpct_isKeyPressed(Key_M);
 
     // ESC: toggle pause (edge detection)
     if (esc_now && !key_esc_held) {
         paused ^= 1;
         hud_dirty = 1; // Force HUD to redraw/clear "PAUSE" text
         if (paused) {
-            muteAY();            // Kill any ringing note immediately
+            cpct_akp_stop();
         } else {
-            // Erase the PAUSE text area: 20 bytes wide (5 chars x 4 bytes in Mode 0), 8 lines
+            // Erase the PAUSE text area: Large font is 15 bytes wide (5 chars x 3 bytes), 8 lines
+            // Range [30, 50) safely covers the centered [32, 47) area
             drawBackgroundRect(30, 96, 20, 8);
         }
     }
@@ -3293,16 +3278,8 @@ void main(void) {
     // If you add your own song in the future, change this name to your new array.
     cpct_akp_musicInit(music_song);
     cpct_akp_SFXInit(music_song);
-    music_on = 1; // disabled because we are still testing
+    music_on = 1;
     key_m_held = 0;
-    
-    // Default keys init
-    g_key_left  = Key_CursorLeft;
-    g_key_right = Key_CursorRight;
-    g_key_fire  = (u16)Key_Space;
-    g_key_pause = (u16)Key_Esc;
-    g_key_music = (u16)Key_M;
-    // g_use_joystick removed
 
     // Register the custom ISR so the music plays automatically in the background
     cpct_setInterruptHandler(music_isr);

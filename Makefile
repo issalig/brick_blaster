@@ -82,10 +82,9 @@ include cfg/build_config.mk
 $(OBJFILES) $(GENOBJFILES): $(LANG_CONFIG)
 
 # Ensure output directories exist
-$(DSK) $(CDT): | $(DISTDIR) $(OBJDIR)/$(DISTDIR)
-$(OBJDSKINCSDIR)/loading.scr.$(DSKINC_EXT) $(OBJDSKINCSDIR)/DISC.BAS.$(DSKINC_EXT): | $(OBJDIR)/$(DISTDIR)
+$(DSK) $(CDT) $(SNA) $(WEB_DISK_JS): | $(DISTDIR) $(OBJDIR)/$(DISTDIR) web/assets/disks
 
-$(DISTDIR) $(OBJDIR)/$(DISTDIR):
+$(DISTDIR) $(OBJDIR)/$(DISTDIR) web/assets/disks:
 	@mkdir -p $@
 
 Z80CCFLAGS += $(LANG_MACRO)
@@ -108,6 +107,22 @@ obj/main.rel: src/assets/sprites.h src/assets/boss.h
 dsk_files/loading.scr: assets/loading.png tools/img2scr.py
 	python3 tools/img2scr.py assets/loading.png dsk_files/loading.scr --basic dsk_files/DISC.BAS
 
+# Generate SNA snapshot (Version 1 - Default)
+SNA := $(DISTDIR)/$(PROJNAME)_$(LANG_SUFFIX).sna
+$(SNA): $(BINFILE) tools/bin2sna.py obj/brickb.map
+	@MAIN_ADDR=$$(grep -w "_main" obj/brickb.map | awk '{print "0x"$$1}' | head -n 1); \
+	python3 tools/bin2sna.py $(BINFILE) $(SNA) 0x0500 $$MAIN_ADDR 0xF000 1; \
+	echo "[$$SNA] Generated SNA snapshot V1 (PC=$$MAIN_ADDR)"; \
+	cp $(SNA) web/assets/disks/
+
+# Generate SNA snapshot (Version 2 - Optional)
+SNA_V2 := $(DISTDIR)/$(PROJNAME)_$(LANG_SUFFIX)_v2.sna
+$(SNA_V2): $(BINFILE) tools/bin2sna.py obj/brickb.map
+	@MAIN_ADDR=$$(grep -w "_main" obj/brickb.map | awk '{print "0x"$$1}' | head -n 1); \
+	python3 tools/bin2sna.py $(BINFILE) $(SNA_V2) 0x0500 $$MAIN_ADDR 0xC000 2; \
+	echo "[$$SNA_V2] Generated SNA snapshot V2 (PC=$$MAIN_ADDR)"; \
+	cp $(SNA_V2) web/assets/disks/
+
 # Ensure the generated file is seen by the engine's inclusion logic
 DSKINCOBJFILES += $(OBJDSKINCSDIR)/loading.scr.$(DSKINC_EXT)
 
@@ -123,14 +138,29 @@ $(OBJDSKINCSDIR)/DISC.BAS.$(DSKINC_EXT): dsk_files/DISC.BAS $(DSK)
 	@$(IDSK) $(DSK) -i $< -t 0 -f &> /dev/null
 	@touch $@
 	@$(call PRINT,$(DSK),"Added '$<' as BASIC")
-	@cp $(DSK) web/assets/brickb_$(LANG_SUFFIX).dsk
+
+# Ensure the web DSK is only copied after all files are included
+WEB_DSK_FINAL := web/assets/disks/brickb_$(LANG_SUFFIX).dsk
+$(WEB_DSK_FINAL): $(DSKINC)
+	@cp $(DSK) $@
+	@$(call PRINT,$(DSK),"Final web DSK synchronized: $@")
 
 # Generate Base64 version of the disk for the web portal
-$(WEB_DISK_JS): $(DSK)
+$(WEB_DISK_JS): $(WEB_DSK_FINAL)
 	@$(call PRINT,$(DSK),"Generating $@ (Base64)")
 	@echo -n "window.diskData = '" > $@
-	@base64 -w 0 $(DSK) >> $@
+	@base64 -w 0 $< >> $@
 	@echo "';" >> $@
+
+all_sna:
+	@for lang in $(LANGS); do $(MAKE) LANG=$$lang sna; done
+
+all_sna_v2:
+	@for lang in $(LANGS); do $(MAKE) LANG=$$lang sna_v2; done
+
+.PHONY: sna sna_v2 all_sna all_sna_v2
+sna: $(SNA)
+sna_v2: $(SNA_V2)
 
 ##
 ## USE GLOBAL MAKEFILE (general rules for building CPCtelera projects)

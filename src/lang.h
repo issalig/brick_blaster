@@ -4,7 +4,6 @@
 #include <cpctelera.h>
 
 typedef enum {
-    STR_GAME_MODE,
     STR_1_PLAYER,
     STR_2_PLAYERS,
     STR_PRESS_H_HELP,

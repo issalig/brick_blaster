@@ -255,14 +255,14 @@
                 handleGamepadTouch(code, false);
             };
 
-            // Use Pointer Events for better cross-device support (Mouse, Touch, Pen)
-            el.addEventListener('pointerdown', startAction);
-            el.addEventListener('pointerup', endAction);
-            el.addEventListener('pointerleave', endAction);
-            el.addEventListener('pointercancel', endAction);
+            el.addEventListener('mousedown', startAction);
+            el.addEventListener('mouseup', endAction);
+            el.addEventListener('mouseleave', endAction);
             
-            // Prevent default touch behaviors (pinch-to-zoom, etc) on the buttons
-            el.style.touchAction = 'none';
+            // Touch support
+            el.addEventListener('touchstart', startAction, { passive: false });
+            el.addEventListener('touchend', endAction, { passive: false });
+            el.addEventListener('touchcancel', endAction, { passive: false });
         });
     </script>
 </body>

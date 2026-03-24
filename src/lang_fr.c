@@ -5,7 +5,6 @@
 #include "lang.h"
 #ifdef LANG_FR
 
-static const u8 s_fr_STR_GAME_MODE[] = "MODE DE JEU";
 static const u8 s_fr_STR_1_PLAYER[] = "1 JOUEUR";
 static const u8 s_fr_STR_2_PLAYERS[] = "2 JOUEURS";
 static const u8 s_fr_STR_PRESS_H_HELP[] = "AIDE";
@@ -66,7 +65,7 @@ static const u8 s_fr_STR_DIFFICULTY[] = "DIFFICULTE : ";
 
 
 const u8* const lang_fr[STR_COUNT] = {
-    s_fr_STR_GAME_MODE, s_fr_STR_1_PLAYER, s_fr_STR_2_PLAYERS, s_fr_STR_PRESS_H_HELP, s_fr_STR_CONTROLS, s_fr_STR_KEY_LEFT, s_fr_STR_MOVE_LEFT, s_fr_STR_KEY_RIGHT, s_fr_STR_MOVE_RIGHT,
+    s_fr_STR_1_PLAYER, s_fr_STR_2_PLAYERS, s_fr_STR_PRESS_H_HELP, s_fr_STR_CONTROLS, s_fr_STR_KEY_LEFT, s_fr_STR_MOVE_LEFT, s_fr_STR_KEY_RIGHT, s_fr_STR_MOVE_RIGHT,
     s_fr_STR_KEY_SPACE, s_fr_STR_FIRE, s_fr_STR_KEY_ESC, s_fr_STR_PAUSE, s_fr_STR_KEY_M, s_fr_STR_MUSIC, s_fr_STR_CAPSULE_GUIDE, s_fr_STR_CLUELESS, s_fr_STR_L_DESC, s_fr_STR_S_DESC,
     s_fr_STR_C_DESC, s_fr_STR_P_DESC, s_fr_STR_B_DESC, s_fr_STR_E_DESC, s_fr_STR_M_DESC, s_fr_STR_I_DESC, s_fr_STR_U_DESC, s_fr_STR_A_DESC, s_fr_STR_D_DESC,
     s_fr_STR_V_DESC, s_fr_STR_T_DESC, s_fr_STR_F_DESC, s_fr_STR_CONGRATS, s_fr_STR_RECOVERED_MOTO, s_fr_STR_NOW_GO_BREAD,

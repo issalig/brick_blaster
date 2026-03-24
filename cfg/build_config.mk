@@ -104,13 +104,13 @@ DSKINC  = $(OBJDIR)/$(DSK).$(DSKINC_EXT)
 ##  $(DSK):    Generates the DSK file with main binary
 ##  $(DSKINC): Includes all files from DSKFILESDIR into DSK as binaries 
 ##
-WEB_DISK_JS := web/assets/disk_$(LANG_SUFFIX).js
+WEB_DISK_JS := web/assets/disks/disk_$(LANG_SUFFIX).js
 TARGET = $(CDT) $(DSK) $(DSKINC) $(WEB_DISK_JS)
 
 ##
 ## OBJS2CLEAN: Additional objects to be removed when running "make clean"
 ##
-OBJS2CLEAN := $(WEB_DISK_JS) $(DISTDIR) dsk_files/loading.scr src/assets/sprites.h src/assets/boss.h
+OBJS2CLEAN := $(WEB_DISK_JS) web/assets/disks $(DISTDIR) dsk_files/loading.scr src/assets/sprites.h src/assets/boss.h
 
 ####
 ## SECTION 2: TOOL PATH CONFIGURATION

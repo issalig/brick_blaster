@@ -67,6 +67,16 @@ paddle_wide = [
     ".RwwwwwwwwwwwwwwwwR."
 ]
 
+# 12 pixels x 6 lines
+paddle_laser = [
+    ".RwwwwwwwwR.",
+    "RRWWWWWWWWRR",
+    "RRWRRRRRRWRR",
+    "RRWRRRRRRWRR",
+    "RRWRRRRRRWRR",
+    ".RwwwwwwwwR."
+]
+
 def str2bytes(art):
     out = []
     for line in art:
@@ -113,6 +123,10 @@ out_c += ", ".join(f"0x{x:02X}" for x in b)
 
 out_c += "\n};\n\nconst u8 paddle_tiny_sprite[] = {\n    "
 b = str2bytes(paddle_tiny)
+out_c += ", ".join(f"0x{x:02X}" for x in b)
+
+out_c += "\n};\n\nconst u8 paddle_laser_sprite[] = {\n    "
+b = str2bytes(paddle_laser)
 out_c += ", ".join(f"0x{x:02X}" for x in b)
 
 out_c += "\n};\n\nconst u8 fireball_sprite[] = {\n    "
@@ -398,7 +412,7 @@ capsule_sprites_defs = [
     create_capsule(["W...", "W...", "W...", "W...", "W...", "W...", "WWWW"], "R", "W"), # 1:  L (Laser/Aggressive)
     create_capsule([".WW.", "W..W", "W...", ".WW.", "...W", "W..W", ".WW."], "Y", "."), # 2:  S (Slow)
     create_capsule([".WW.", "W..W", "W...", "W...", "W...", "W..W", ".WW."], "G", "."), # 3:  C (Catch/Sticky)
-    create_capsule(["WWW.", "W..W", "W..W", "WWW.", "W...", "W...", "W..."], "W", "."), # 4:  P (Player/Life)
+    create_capsule(["WWW.", "W..W", "W..W", "WWW.", "W...", "W...", "W..."], "B", "W"), # 4:  P (Player/Life)
     create_capsule(["WWW.", "W..W", "W..W", "WWW.", "W..W", "W..W", "WWW."], "c", "W"), # 5:  B (Break/Warp)
     create_capsule(["WWWW", "W...", "W...", "WWW.", "W...", "W...", "WWWW"], "C", "."), # 6:  E (Expand)
     create_capsule(["W..W", "WWWW", "W..W", "W..W", "W..W", "W..W", "W..W"], "M", "W"), # 7:  M (Multi)
