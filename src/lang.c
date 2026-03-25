@@ -1,3 +1,8 @@
+/**
+ * Brick Blaster - Language Support
+ * License: MIT License (c) 2026 issalig
+ */
+
 #include "lang.h"
 
 u8 current_lang = 0;

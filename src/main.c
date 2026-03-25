@@ -1,5 +1,5 @@
 /**
- * Brick Blaster (Arkanoid Clone)
+ * Brick Blaster
  * ----------------------------------------------------
  * @author  issalig
  * 
@@ -60,7 +60,7 @@
 
 #define BRICK_ROWS          10
 #define BRICK_COLS          10
-#define NUM_LEVELS          10
+#define NUM_LEVELS          11
 #define BRICK_WIDTH_BYTES   7   // 14 pixels
 #define BRICK_HEIGHT        6   // Full sprite height
 #define BRICK_START_X       5   // Left margin centered in play area
@@ -239,25 +239,29 @@ u8 level_cleared;   // Global flag to trigger level transition
 u8 key_m_held;    // Edge detection for M key
 u8 key_esc_held;  // Edge detection for ESC key (Toggle pause)
 
-// --- Power-up States ---
-u8 glue_active;   // 1 = next paddle hit sticks the ball
-u16 glue_timer;   // Countdown frames until auto-launch (used when ball is stuck)
-u8 expand_active; // 1 = paddle is currently expanded
-u8 slow_active;   // 1 = ball speed was reset/slowed
-u8 freeze_active; // 1 = paddle is frozen (ice trap)
-u16 freeze_timer;  // frames until ice melts
-u8 magnet_active; // 1 = paddle repels ball (magnet trap)
-u8 autopilot_active; // 1 = paddle follows ball automatically
-u16 autopilot_timer; // duration of autopilot
-u8 laser_active;       // Power-up flag
-u8 laser_fire_timer;   // Rate-limiter (~0.3s between bursts)
-u8 drunk_active;     // 1 = controls inverted (D trap)
-u8 fireball_active;  // 1 = ball pierces bricks (F benefit)
+typedef struct {
+    u8  glue_active;
+    u16 glue_timer;
+    u8  expand_active;
+    u8  slow_active;
+    u8  freeze_active;
+    u16 freeze_timer;
+    u8  magnet_active;
+    u8  autopilot_active;
+    u16 autopilot_timer;
+    u8  laser_active;
+    u8  laser_fire_timer;
+    u8  drunk_active;
+    u8  fireball_active;
+    u8  fast_active;
+    u8  tiny_active;
+} powerup_state_t;
+
+powerup_state_t powerups;
+
 u8 victory_walk;     // 1 = boss dead, just walk to exit
 u16 victory_palette_timer;
 u8 victory_palette_offset;
-u8 fast_active;      // 1 = ball is extra fast (V trap)
-u8 tiny_active;      // 1 = paddle is tiny (T trap)
 u8 door_open;        // 1 = exit door is open
 // Door Energy Field Animation State
 #define DOOR_ANIM_SPEED 4
@@ -268,6 +272,13 @@ u8 demo_fire_timer;   // for auto-firing lasers
 u8 game_difficulty;   // 0=Easy, 1=Normal, 2=Hard
 u8 launch_timer;      // Counts down from 250 (5s at 50Hz); ball auto-launches at 0
 u8 game_won;          // 1 = player defeated the boss
+
+static u8 getBrickSpriteIndex(u8 r, u8 c) {
+    u8 btype = BRICK_TYPE(brick_map[r][c]);
+    if (btype == BTYPE_HARD) return 8;
+    if (btype == BTYPE_GOLD) return 9;
+    return BRICK_COLOR(brick_map[r][c]);
+}
 
 // Pre-computed background rows for blazing fast rendering without stack allocation overhead
 u8 bg_row_cache[8][80];
@@ -490,7 +501,7 @@ const u8 level_data [NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
         { _,    _,    _,    N(2), N(2), N(2), N(2), _,    _,    _ },
         { _,    _,    N(2), N(2), N(2), N(2), N(2), N(2), _,    _ },
         { _,    N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2), _ },
-        { _,    N(2), N(2), _,    N(2), N(2), _,    N(2), N(2), _ },
+        { _,    N(2), N(2), G(1), N(2), N(2), G(1), N(2), N(2), _ },
         { _,    N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2), _ },
         { _,    _,    _,    N(2), N(1), N(1), N(2), _,    _,    _ },
         { _,    _,    N(2), _,    N(2), N(2), _,    N(2), _,    _ },
@@ -576,7 +587,20 @@ const u8 level_data [NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
         {    _,    _,    _, N(1), N(1), N(1), N(1),    _,    _,    _ }
     },
 
-    { // Level 10: "The Boss Room"
+    { // Level 10: "The Strawberry"
+        { _,    _,    _,    _,    N(6), N(6), _,    _,    _,    _ },
+        { _,    _,    _,    N(6), N(2), N(2), N(6), _,    _,    _ },
+        { _,    _,    _,    N(2), N(2), N(2), N(2), _,    _,    _ },
+        { _,    _,    N(0), N(0), N(0), N(0), N(0), N(0), _,    _ },
+        { _,    N(0), N(0), N(1), N(0), N(0), N(1), N(0), N(0), _ },
+        { _,    N(0), N(0), N(0), N(0), N(0), N(0), N(0), N(0), _ },
+        { _,    N(0), N(1), N(0), N(0), N(1), N(0), N(0), N(1), _ },
+        { _,    _,    N(0), N(0), N(0), N(0), N(0), N(0), _,    _ },
+        { _,    _,    _,    N(0), N(1), N(0), N(1), _,    _,    _ },
+        { _,    _,    _,    _,    N(0), N(0), _,    _,    _,    _ }
+    },
+
+    { // Level 11: "The Boss Room"
         { _, _, _, _, _, _, _, _, _, _ },
         { _, _, _, _, _, _, _, _, _, _ },
         { _, _, _, _, _, _, _, _, _, _ },
@@ -796,55 +820,55 @@ void applyPowerup(u8 ptype) {
         // Ensure main ball is active if we had any ball in play
         if (best_idx != -2) ball.active = 1;
 
-        glue_active = 0;
-        laser_active = 0;
-        laser_fire_timer = 0;
-        freeze_active = 0;
-        magnet_active = 0;
+        powerups.glue_active = 0;
+        powerups.laser_active = 0;
+        powerups.laser_fire_timer = 0;
+        powerups.freeze_active = 0;
+        powerups.magnet_active = 0;
         // Expand is cancelled by anything except Expand itself
         if (ptype != BPOWER_EXPAND) {
             paddle.width = PADDLE_WIDTH_BYTES;
-            expand_active = 0;
+            powerups.expand_active = 0;
         }
-        if (slow_active || fast_active) {
+        if (powerups.slow_active || powerups.fast_active) {
             ball.speed = getNormalBallSpeed();
             updateBallVelocity();
         }
-        slow_active = 0;
-        fast_active = 0;
-        autopilot_active = 0;
-        autopilot_timer = 0;
-        drunk_active = 0;
-        fireball_active = 0;
-        tiny_active = 0;
+        powerups.slow_active = 0;
+        powerups.fast_active = 0;
+        powerups.autopilot_active = 0;
+        powerups.autopilot_timer = 0;
+        powerups.drunk_active = 0;
+        powerups.fireball_active = 0;
+        powerups.tiny_active = 0;
     }
 
     // Activate new power-up
     if (ptype == BPOWER_AUTOPILOT) {
-        autopilot_active = 1;
-        autopilot_timer = 300; // ~6 seconds at 50Hz
+        powerups.autopilot_active = 1;
+        powerups.autopilot_timer = 300; // ~6 seconds at 50Hz
     } else if (ptype == BPOWER_DRUNK) {
-        drunk_active = 1;
+        powerups.drunk_active = 1;
     } else if (ptype == BPOWER_FAST) {
-        fast_active = 1;
+        powerups.fast_active = 1;
         ball.speed += (ball.speed >> 1); // +50% speed
         updateBallVelocity();
     } else if (ptype == BPOWER_TINY) {
         paddle.width = PADDLE_WIDTH_TINY; 
-        tiny_active = 1;
+        powerups.tiny_active = 1;
     } else if (ptype == BPOWER_FIREBALL) {
-        fireball_active = 1;
+        powerups.fireball_active = 1;
     } else if (ptype == BPOWER_LASER) {
-        laser_active = 1;
+        powerups.laser_active = 1;
         // Clean up any still-flying lasers from the old laser pickup
         for (i = 0; i < MAX_LASER_PAIRS; i++) { if (lasers[i].active) { lasers[i].active = 0; lasers[i].needs_bg_repaint = 1; } }
     } else if (ptype == BPOWER_GLUE) {
-        glue_active = 1;
+        powerups.glue_active = 1;
     } else if (ptype == BPOWER_LIFE) {
         if (lives < 9) { lives++; hud_dirty = 1; }
     } else if (ptype == BPOWER_SLOW) {
-        if (!slow_active) {
-            slow_active = 1;
+        if (!powerups.slow_active) {
+            powerups.slow_active = 1;
             ball.speed >>= 1; // Halve speed
             updateBallVelocity();
         }
@@ -860,14 +884,12 @@ void applyPowerup(u8 ptype) {
             }
             paddle.width = PADDLE_WIDTH_WIDE;
         }
-        expand_active = 1;
+        powerups.expand_active = 1;
     } else if (ptype == BPOWER_ICE) {
-        freeze_active = 1;
-        freeze_timer = 150; // 3 seconds at 50Hz
+        powerups.freeze_active = 1;
+        powerups.freeze_timer = 150; // 3 seconds at 50Hz
     } else if (ptype == BPOWER_MAGNET) {
-        magnet_active = 1;
-    } else if (ptype == BPOWER_AUTOPILOT) {
-        // Handled above at line 743
+        powerups.magnet_active = 1;
     }
 
     hud_dirty = 1;
@@ -1210,20 +1232,26 @@ void drawCustomTextXLargeCentered(const u8* text, u8 y_lines, u8 color) {
 
 // Randomly assign power-ups to normal bricks at level start
 void assignPowerups() {
-    u8 r, c, rnd;
+    u8 r, c, rnd, threshold;
+    // Set threshold based on difficulty: 0=Easy(50%), 1=Normal(30%), 2=Hard(15%)
+    if (game_difficulty == 0) threshold = 128;      // 128/256 = 50%
+    else if (game_difficulty == 1) threshold = 77;  // 77/256 ~ 30%
+    else threshold = 38;                           // 38/256 ~ 15%
+
     rng_seed ^= (u16)(current_level + 1) * 0x1234;
     if (rng_seed == 0) rng_seed = 0xACE1;
     for (r = 0; r < BRICK_ROWS; r++) {
         for (c = 0; c < BRICK_COLS; c++) {
             if (BRICK_TYPE(brick_map[r][c]) == BTYPE_NORMAL) {
-                // ~25% chance of having a power-up
                 rnd = rand8();
-                //if ((rnd & 0x03) == 0) { // 0x03 = 00000011 last 2 bits from 8 are 0, so 1/4 chance
-                if(1){
+                if (rnd < threshold) {
                     // Pick a random power-up type: 1 to NUM_POWERUP_SPRITES
                     // 0 is BPOWER_NONE
-                    u8 pwr = 1 + ((rnd >> 2) % NUM_POWERUP_SPRITES);
+                    u8 pwr = 1 + (rand8() % NUM_POWERUP_SPRITES);
                     brick_map[r][c] = BRICK(BTYPE_NORMAL, BRICK_COLOR(brick_map[r][c]), pwr);
+                } else {
+                    // Ensure NO powerup if threshold not met (overwrites any level-defined powerup)
+                    brick_map[r][c] = BRICK(BTYPE_NORMAL, BRICK_COLOR(brick_map[r][c]), BPOWER_NONE);
                 }
             }
         }
@@ -1316,21 +1344,21 @@ void switchPlayer() {
 void resetPowerups() {
     u8 i;
     // --- Power-up Reset ---
-    glue_active = 0;
-    glue_timer = 0;
-    expand_active = 0;
-    slow_active = 0;
-    laser_active = 0;
-    laser_fire_timer = 0;
-    drunk_active = 0;
-    fireball_active = 0;
-    fast_active = 0;
-    freeze_active = 0;
-    freeze_timer = 0;
-    magnet_active = 0;
-    autopilot_active = 0;
-    autopilot_timer = 0;
-    tiny_active = 0;
+    powerups.glue_active = 0;
+    powerups.glue_timer = 0;
+    powerups.expand_active = 0;
+    powerups.slow_active = 0;
+    powerups.laser_active = 0;
+    powerups.laser_fire_timer = 0;
+    powerups.drunk_active = 0;
+    powerups.fireball_active = 0;
+    powerups.fast_active = 0;
+    powerups.freeze_active = 0;
+    powerups.freeze_timer = 0;
+    powerups.magnet_active = 0;
+    powerups.autopilot_active = 0;
+    powerups.autopilot_timer = 0;
+    powerups.tiny_active = 0;
     
     initPaddle(); // Reset paddle width and position
     initBall();   // Ball starts attached to paddle
@@ -1591,15 +1619,15 @@ void updateDoorAnim() {
 
 void updatePaddle() {
     u8 speed = PADDLE_SPEED;
-    if (freeze_active) {
+    if (powerups.freeze_active) {
         speed = 0;
-        if (freeze_timer > 0) {
-            freeze_timer--;
-            if (freeze_timer == 0) freeze_active = 0;
+        if (powerups.freeze_timer > 0) {
+            powerups.freeze_timer--;
+            if (powerups.freeze_timer == 0) powerups.freeze_active = 0;
         }
     }
 
-    if (autopilot_active || demo_mode) {
+    if (powerups.autopilot_active || demo_mode) {
         u8 target_x;
         if (door_open) {
             target_x = WALL_RIGHT_BYTES + 8; // Head towards door
@@ -1634,15 +1662,15 @@ void updatePaddle() {
         }
  
         // Decrement timer only for autopilot power-up
-        if (autopilot_active && autopilot_timer > 0) {
-            autopilot_timer--;
-            if (autopilot_timer == 0) autopilot_active = 0;
+        if (powerups.autopilot_active && powerups.autopilot_timer > 0) {
+            powerups.autopilot_timer--;
+            if (powerups.autopilot_timer == 0) powerups.autopilot_active = 0;
         }
     } else {
         // Check redefinable keys or joystick
         u8 left_p = cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Key_O) || cpct_isKeyPressed(Joy0_Left);
         u8 right_p = cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Key_P) || cpct_isKeyPressed(Joy0_Right);
-        if (drunk_active) { u8 tmp = left_p; left_p = right_p; right_p = tmp; }
+        if (powerups.drunk_active) { u8 tmp = left_p; left_p = right_p; right_p = tmp; }
 
         if (left_p) {
             if (paddle.x >= WALL_LEFT_BYTES + speed) {
@@ -1692,7 +1720,7 @@ void moveBall(ball_t *b) {
     b->fpos_y += b->speed_y;
 
     // Reverse Magnet Trap: repel ball from paddle when close
-    if (magnet_active && b->y > paddle.y - 40 && b->y < paddle.y + 10) {
+    if (powerups.magnet_active && b->y > paddle.y - 40 && b->y < paddle.y + 10) {
         // If ball is roughly above/near the paddle
         if (b->x + b->width >= paddle.x && b->x <= paddle.x + paddle.width) {
             // Repel: nudge the fixed-point X away from the paddle's center
@@ -1762,7 +1790,7 @@ void moveBall(ball_t *b) {
 }
 
 // Bounce ball off paddle using 5-zone angle system. Returns 1 if paddle was hit.
-// Does NOT handle glue — caller must check glue_active after this returns 1.
+// Does NOT handle glue — caller must check powerups.glue_active after this returns 1.
 u8 bouncePaddle(ball_t *b) {
     i8 paddle_center, ball_center, diff;
 
@@ -1894,10 +1922,10 @@ hit:
         u8 was_outside_y = (b->old_y + b->height <= by) || (b->old_y >= by + BRICK_HEIGHT);
 
         if (was_outside_x && !was_outside_y) { 
-            if (!fireball_active || bricks[r][c] == BSTATE_GOLD) b->dir_x = -b->dir_x; 
+            if (!powerups.fireball_active || bricks[r][c] == BSTATE_GOLD) b->dir_x = -b->dir_x; 
         }
         else { 
-            if (!fireball_active || bricks[r][c] == BSTATE_GOLD) b->dir_y = -b->dir_y; 
+            if (!powerups.fireball_active || bricks[r][c] == BSTATE_GOLD) b->dir_y = -b->dir_y; 
         }
         b->speed_x = FP_VEL(b->dir_x, b->speed);
         b->speed_y = FP_VEL(b->dir_y, b->speed);
@@ -1988,11 +2016,11 @@ void loseLife() {
 
 // Handle laser input: fire on Space, rate-limited.
 void updateLaserInput() {
-    if (!laser_active) return;
-    if (laser_fire_timer > 0) laser_fire_timer--;
-    if ((cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) && laser_fire_timer == 0) {
+    if (!powerups.laser_active) return;
+    if (powerups.laser_fire_timer > 0) powerups.laser_fire_timer--;
+    if ((cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) && powerups.laser_fire_timer == 0) {
         fireLaser();
-        laser_fire_timer = 15;
+        powerups.laser_fire_timer = 15;
     }
 }
 
@@ -2010,11 +2038,11 @@ void updateBallOnPaddle() {
 
     if (victory_walk) return;
 
-    if (glue_active) {
+    if (powerups.glue_active) {
         // Glue mode: wait for glue_timer (set on paddle bounce), then auto-release
-        if (glue_timer > 0) glue_timer--;
-        if (glue_timer == 0 || cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1) || (demo_mode && glue_timer < 100)) {
-            glue_timer = 0;
+        if (powerups.glue_timer > 0) powerups.glue_timer--;
+        if (powerups.glue_timer == 0 || cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1) || (demo_mode && powerups.glue_timer < 100)) {
+            powerups.glue_timer = 0;
             launch_timer = 250; // Reset for next ball
             ball.active = 1;
             ball.dir_x = initial_dir_x;
@@ -2046,11 +2074,11 @@ u8 handleBallPhysics(ball_t *b) {
     if (bouncePaddle(b)) {
         if (b == &ball) {
             cpct_akp_SFXPlay(8, 15, 84, 0, 0, AY_CHANNEL_ALL); //C6
-            if (glue_active) {
+            if (powerups.glue_active) {
                 b->active = 0;
                 b->dir_x = 0; b->dir_y = 0;
                 b->speed_x = 0; b->speed_y = 0;
-                glue_timer = 200;
+                powerups.glue_timer = 200;
             }
         }
     }
@@ -2192,11 +2220,7 @@ void drawDrop() {
                     if (brick_x[c] + BRICK_WIDTH_BYTES <= drop.x) continue;
                     if (brick_x[c] >= drop.x + DROP_WIDTH) break;
                     if (bricks[r][c] != BSTATE_EMPTY && bricks[r][c] != BSTATE_NEEDS_ERASE) {
-                        u8 btype = BRICK_TYPE(brick_map[r][c]);
-                        u8 s_idx;
-                        if (btype == BTYPE_HARD) s_idx = 8;
-                        else if (btype == BTYPE_GOLD) s_idx = 9;
-                        else s_idx = BRICK_COLOR(brick_map[r][c]);
+                        u8 s_idx = getBrickSpriteIndex(r, c);
                         pVideoMemory = cpct_getScreenPtr((void*)0xC000, brick_x[c], brick_y[r]);
                         cpct_drawSprite(brick_sprites[s_idx], pVideoMemory, BRICK_WIDTH_BYTES, BRICK_HEIGHT);
                     }
@@ -2388,7 +2412,7 @@ void drawExtraBalls() {
                 if (b->y <= SCREEN_HEIGHT - b->height && b->x < 80 && b->y >= WALL_TOP) {
                     if (1) { // Always draw Fireball (no blinking)
                         pMem = cpct_getScreenPtr((void*)0xC000, b->x, b->y);
-                        cpct_drawSprite(fireball_active ? fireball_sprite : ball_sprite, pMem, b->width, b->height);
+                        cpct_drawSprite(powerups.fireball_active ? fireball_sprite : ball_sprite, pMem, b->width, b->height);
                     }
                 }
                 b->old_x = b->x;
@@ -2422,11 +2446,7 @@ void drawFlashBricks() {
         if (flash_timer[f] == 0) {
             u8 r = flash_r[f]; u8 c = flash_c[f];
             if (bricks[r][c] != BSTATE_EMPTY && bricks[r][c] != BSTATE_NEEDS_ERASE) {
-                u8 btype = BRICK_TYPE(brick_map[r][c]);
-                u8 s_idx;
-                if (btype == BTYPE_HARD) s_idx = 8;
-                else if (btype == BTYPE_GOLD) s_idx = 9;
-                else s_idx = BRICK_COLOR(brick_map[r][c]);
+                u8 s_idx = getBrickSpriteIndex(r, c);
 
                 pMem = cpct_getScreenPtr((void*)0xC000, brick_x[c], brick_y[r]);
                 cpct_drawSprite(brick_sprites[s_idx], pMem, BRICK_WIDTH_BYTES, BRICK_HEIGHT);
@@ -2472,7 +2492,7 @@ void drawGame() {
             cpct_drawSprite(paddle_wide_sprite, pMem, paddle.width, paddle.height);
         } else if (paddle.width == PADDLE_WIDTH_TINY) {
             cpct_drawSprite(paddle_tiny_sprite, pMem, paddle.width, paddle.height);
-        } else if (laser_active) {
+        } else if (powerups.laser_active) {
             cpct_drawSprite(paddle_laser_sprite, pMem, paddle.width, paddle.height);
         } else {
             cpct_drawSprite(paddle_sprite, pMem, paddle.width, paddle.height);
@@ -2495,7 +2515,7 @@ void drawGame() {
     if (ball.y <= SCREEN_HEIGHT - ball.height && ball.x < 80 && ball.y >= WALL_TOP) {
         if (1) {
             u8* pMem = cpct_getScreenPtr((void*)0xC000, ball.x, ball.y);
-            cpct_drawSprite(fireball_active ? fireball_sprite : ball_sprite, pMem, ball.width, ball.height);
+            cpct_drawSprite(powerups.fireball_active ? fireball_sprite : ball_sprite, pMem, ball.width, ball.height);
         }
     }
     
@@ -2562,11 +2582,7 @@ void drawBackground() {
             if (bricks[r][c] != BSTATE_EMPTY && bricks[r][c] != BSTATE_NEEDS_ERASE) {
                 u8 bx = BRICK_START_X + c * (BRICK_WIDTH_BYTES + BRICK_GAP_X);
                 u8 by = BRICK_START_Y + r * (BRICK_HEIGHT + BRICK_GAP_Y);
-                u8 btype = BRICK_TYPE(brick_map[r][c]);
-                u8 s_idx;
-                if (btype == BTYPE_HARD) s_idx = 8;
-                else if (btype == BTYPE_GOLD) s_idx = 9;
-                else s_idx = BRICK_COLOR(brick_map[r][c]);
+                u8 s_idx = getBrickSpriteIndex(r, c);
 
                 pVideoMemory = cpct_getScreenPtr((void*)0xC000, bx, by);
                 cpct_drawSprite(brick_sprites[s_idx], pVideoMemory, BRICK_WIDTH_BYTES, BRICK_HEIGHT);
@@ -3327,7 +3343,7 @@ void main(void) {
                 // Auto-launch if ball is attached to paddle (handled now in updateBallOnPaddle)
                 
                 // Auto-fire if laser is active
-                if (laser_active) {
+                if (powerups.laser_active) {
                     demo_fire_timer++;
                     if (demo_fire_timer > 30) { // Every 0.6 seconds
                         fireLaser();
@@ -3362,7 +3378,7 @@ void main(void) {
 
         if (game_won) {
             showVictory();
-        } else {
+        } else if (lives == 0) {
             // Lives reached 0, game over
             showGameOver();
         }

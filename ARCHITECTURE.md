@@ -56,37 +56,47 @@ The game is designed around several key structures defined in `src/main.c`:
     -   `x_left`, `x_right`: Fixed horizontal offsets for each beam.
     -   `y`, `old_y`: Current and previous vertical positions.
     -   `active`: Flag for visibility and collision processing.
+-   **`powerup_state_t`**: Encapsulates all active power-up flags and their associated timers.
+    -   `glue_active`, `glue_timer`: Sticky paddle state.
+    -   `expand_active`, `tiny_active`: Paddle size modifiers.
+    -   `laser_active`, `laser_fire_timer`: Combat state.
+    -   `slow_active`, `fast_active`, `fireball_active`: Ball physics modifiers.
+    -   `freeze_active`, `freeze_timer`: Ice trap state.
+    -   `drunk_active`: Inverted controls state.
+    -   `magnet_active`: Ball repulsion trap.
+    -   `autopilot_active`, `autopilot_timer`: AI help state.
 -   **`player_state_t`**: Encapsulates the complete context for a player in 2-player mode.
     -   `lives`, `score`, `current_level`: Standard progression trackers.
-    -   `bricks[8][8]`, `active_bricks`: The unique brick layout state for this player.
+    -   `bricks[10][10]`, `active_bricks`: The unique brick layout state for this player.
     -   `level_cleared`: Flag used to manage transitions between players or levels.
 
 ### Brick System & Level Encoding
-The core of the level design is a compact 2D grid (`bricks[8][8]`). To minimize memory usage while maximizing features, each cell is a single byte packed with metadata:
+The core of the level design is a compact 2D grid (`bricks[10][10]`). To minimize memory usage while maximizing features, each cell is a single byte packed with metadata:
 
 -   **Bits 0-1 (Type)**: `0=Empty`, `1=Normal` (1 HP), `2=Hard` (2 HP), `3=Gold` (Invincible).
 -   **Bits 2-3 (Color)**: Indexes one of 4 predefined color pairs for the brick's gradient.
 -   **Bits 4-7 (Power-up)**: Defines which capsule (if any) will drop upon destruction.
 
 #### Level Lifecycle:
-1.  **Static Data**: Levels are stored as a 3D constant array `level_data[NUM_LEVELS][8][8]` in ROM.
-2.  **Runtime Loading**: When a level starts, this data is copied into the mutable RAM array `bricks[8][8]`.
-3.  **Destruction Workflow**: When the ball hits a brick:
+1.  **Static Data**: Levels are stored as a 3D constant array `level_data[NUM_LEVELS][10][10]` in ROM.
+2.  **Runtime Loading**: When a level starts, this data is copied into the mutable RAM array `bricks[10][10]`.
+3.  **Sprite Selection**: The function `getBrickSpriteIndex(r, c)` centralizes the logic for picking the correct sprite based on brick type and color.
+4.  **Destruction Workflow**: When the ball hits a brick:
     -   If HP > 1: Type is decremented but the brick remains.
     -   If HP == 1: The brick is marked with a special flag `BSTATE_NEEDS_ERASE`.
     -   **Deferred Erasure**: The main loop detects the erase flag, triggers the power-up drop if applicable, and restores the background pattern to "erase" the brick visually without a full screen redraw.
 4.  **Completion Condition**: The game tracks a counter `active_bricks`. Only `BTYPE_NORMAL` and `BTYPE_HARD` contribute to this count. When `active_bricks` reaches 0, the current level is marked as cleared (`level_cleared = 1`), and the transition logic is triggered.
 
-The game features three selectable difficulty levels (Easy, Normal, Hard) that control the ball's speed expansion rate:
+The game features three selectable difficulty levels (Easy, Normal, Hard) that control the ball's speed expansion rate and the probability of power-up drops in `assignPowerups()`:
 
-| Difficulty | Increment per 2 levels | Max Speed Offset |
+| Difficulty | Speed Incr. | Power-up % |
 | :--- | :--- | :--- |
-| **Easy (1)** | +8 units | +150 units |
-| **Normal (2)** | +15 | +150 units |
-| **Hard (3)** | +20 | +150 units |
+| **Easy (0)** | +8 units | 50% |
+| **Normal (1)** | +15 | 30% |
+| **Hard (2)** | +20 | 15% |
 
 - **Formula**: `INITIAL_BALL_SPEED + (current_level / 2) * increment`.
-- **Key Logic**: The `3` key cycles through difficulty levels in the main menu. To prevent animation stutter, it uses optimized **partial redrawing**, refreshing only the difficulty text line instead of the entire screen.
+- **Key Logic**: The `3` key or menu navigation cycles through difficulty levels. To prevent animation stutter, it uses optimized **partial redrawing**, refreshing only the difficulty text line during menu interaction.
 
 ## 4. Scoring System
 
@@ -258,7 +268,7 @@ To prevent visual glitches where enemies appeared in the HUD area, a safety clip
 Menu interactions (like switching difficulty) use **Delta Redrawing**. Instead of clearing and repainting the entire menu, only the specific line containing the changed value is updated. This prevents the pseudo-parallax starfield and Arkos Tracker music from stuttering due to high CPU load during full-screen redraws.
 
 ### Automated Exit Transition
-In Demo and Autopilot modes, the paddle AI is enhanced with a **Door Detection** state. Once `door_open` is true, the paddle ignores the ball and steers directly towards the exit threshold (`WALL_RIGHT_BYTES`), facilitating a hands-free transition to the next level.
+In Demo and Autopilot modes, the paddle AI is enhanced with a **Door Detection** state. Once `door_open` is true, the paddle ignores the ball and steers directly towards the exit threshold (`WALL_RIGHT_BYTES`), facilitating a hands-free transition to the next level. Exiting demo mode via key press returns the player directly to the start menu, bypassing the "Game Over" screen for a smoother experience.
 
 ## 12. Main Game Loop
 

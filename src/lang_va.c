@@ -1,6 +1,6 @@
 /**
  * Brick Blaster - Valencian Localization
- * License: MIT License (c) 2026 ISSALIG
+ * License: MIT License (c) 2026 issalig
  */
 #include "lang.h"
 
@@ -46,7 +46,7 @@ static const u8 s_va_STR_GAME_OVER[] = "GAME OVER";
 static const u8 s_va_STR_NO_MOTO_NO_EAT[] = "SENSE MOTO I SENSE DINAR";
 static const u8 s_va_STR_GAME_OVER_SUB2[] = "TORNA A JUGAR PER A CONSEGUIR PAPEO";
 static const u8 s_va_STR_STORY_1[] = "ERA UN MATI QUALSEVOL";
-static const u8 s_va_STR_STORY_2[] = "ANAVES A COMPRAR EL PA, PERO MARIA";
+static const u8 s_va_STR_STORY_2[] = "ANAVES A COMPRAR EL PA, PERO MARCIAL";
 static const u8 s_va_STR_STORY_3[] = "EL MARCIA ET VA ROBAR LA VESPA.";
 static const u8 s_va_STR_STORY_4[] = "ARA ESTAS ATRAPAT EN UNA";
 static const u8 s_va_STR_STORY_5[] = "PRESO ESPACIAL DE RAJOLES.";

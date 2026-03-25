@@ -128,7 +128,7 @@ include $(CPCT_PATH)/cfg/global_paths.mk
 ##   fine for most of the projects, but you may change them for special uses.
 #####
 ifeq ($(DEBUG), 1)
-    Z80CCFLAGS    += --max-allocs-per-node 2000
+    Z80CCFLAGS    += #--opt-code-size
 else
     Z80CCFLAGS    += --opt-code-size --max-allocs-per-node 20000 --peep-return
 endif

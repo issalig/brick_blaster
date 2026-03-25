@@ -1,3 +1,8 @@
+/**
+ * Brick Blaster - Language Support
+ * License: MIT License (c) 2026 issalig
+ */
+
 #ifndef LANG_H
 #define LANG_H
 

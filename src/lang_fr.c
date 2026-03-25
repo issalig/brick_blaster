@@ -1,6 +1,6 @@
 /**
  * Brick Blaster - French Localization
- * License: MIT License (c) 2026 ISSALIG
+ * License: MIT License (c) 2026 issalig
  */
 #include "lang.h"
 #ifdef LANG_FR

@@ -147,17 +147,6 @@ out_c += "\n};\n\n"
 # out_c += "\n};\n\n"
 
 # 4 bytes wide = 8 pixels. 8 lines high.
-bg_pattern_1 = [
-    "BBBBBBBB",
-    "BBBBBBBb",
-    "BBBBBBbb",
-    "BBBBBbbb",
-    "BBBBbbbb",
-    "BBBbbbbb",
-    "BBbbbbbb",
-    "Bbbbbbbb"
-]
-
 bg_pattern_0 = [
     "bbbcccBb",
     "bbccBBBb",
@@ -169,7 +158,18 @@ bg_pattern_0 = [
     "BBBBccbB"
 ]
 
-bg_pattern_4 = [ # Diamonds
+bg_pattern_1 = [
+    "BBBBBBBB",
+    "BBBBBBBb",
+    "BBBBBBbb",
+    "BBBBBbbb",
+    "BBBBbbbb",
+    "BBBbbbbb",
+    "BBbbbbbb",
+    "Bbbbbbbb"
+]
+
+bg_pattern_2 = [
     "cbbBBbbc",
     "bbBBBBbb",
     "bBBBBBBb",
@@ -180,7 +180,7 @@ bg_pattern_4 = [ # Diamonds
     "cbbBBbbc"
 ]
 
-bg_pattern_5 = [ # Faceted cube
+bg_pattern_3 = [
     "BBBBbbbb",
     "BBBbbbbb",
     "BBbbbbbb",
@@ -189,6 +189,17 @@ bg_pattern_5 = [ # Faceted cube
     "bbbbbBBB",
     "bbbbbbBB",
     "bbbbbbbB"
+]
+
+bg_pattern_4 = [
+    "ccGGGGcc",
+    "cGggggGc",
+    "GgccccgG",
+    "gccccccg",
+    "gccccccg",
+    "GgccccgG",
+    "cGggggGc",
+    "ccGGGGcc"
 ]
 
 # 14 pixels x 6 lines (matching BRICK_WIDTH_BYTES 7 and BRICK_HEIGHT 6)
@@ -203,7 +214,6 @@ def make_brick(color_main, color_light, color_dark):
     ]
 
 # Generate sprites for all brick types
-# Colors: R, Y, G, C, M, r, g, c, w (Silver), y (Gold)
 brick_sprites_defs = [
     make_brick("R", "W", "r"), # Type 0: Red
     make_brick("Y", "W", "y"), # Type 1: Yellow
@@ -427,7 +437,7 @@ capsule_sprites_defs = [
 
 
 
-bg_patterns = [bg_pattern_0, bg_pattern_1, bg_pattern_4, bg_pattern_5]
+bg_patterns = [bg_pattern_0, bg_pattern_1, bg_pattern_2, bg_pattern_3, bg_pattern_4]
 
 out_c += f"#define PATTERN_WIDTH_BYTES {(len(bg_pattern_0[0]) + 1) // 2}\n"
 out_c += f"#define PATTERN_HEIGHT      {len(bg_pattern_0)}\n"

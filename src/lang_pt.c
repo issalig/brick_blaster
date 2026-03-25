@@ -1,6 +1,6 @@
 /**
  * Brick Blaster - Portuguese (Portugal) Localization
- * License: MIT License (c) 2026 ISSALIG
+ * License: MIT License (c) 2026 issalig
  */
 #include "lang.h"
 
@@ -27,16 +27,16 @@ static const u8 s_pt_STR_C_DESC[] = "COLA DE SAPATEIRO";
 static const u8 s_pt_STR_P_DESC[] = "UMA PRENDA, CARALHO";
 static const u8 s_pt_STR_B_DESC[] = "SAIDA DE EMERGENCIA";
 static const u8 s_pt_STR_E_DESC[] = "PADDLE XXL";
-static const u8 s_pt_STR_M_DESC[] = "MUITA BOLINHA";
+static const u8 s_pt_STR_M_DESC[] = "MUITAS BOLAS";
 static const u8 s_pt_STR_I_DESC[] = "CONGELADO NO TEMPO";
-static const u8 s_pt_STR_U_DESC[] = "REPELENTE DE MOSCAS";
+static const u8 s_pt_STR_U_DESC[] = "REPELENTE";
 static const u8 s_pt_STR_A_DESC[] = "MAOS NOS BOLSOS";
-static const u8 s_pt_STR_D_DESC[] = "BEBADO QUE NEM UM CACHO";
+static const u8 s_pt_STR_D_DESC[] = "BEBADO";
 static const u8 s_pt_STR_V_DESC[] = "A FUNDO";
-static const u8 s_pt_STR_T_DESC[] = "TOCAR NA ALMA";
+static const u8 s_pt_STR_T_DESC[] = "MINI";
 static const u8 s_pt_STR_F_DESC[] = "BOLA DE FOGO";
 
-static const u8 s_pt_STR_CONGRATS[] = "PARABENS, PA!";
+static const u8 s_pt_STR_CONGRATS[] = "PARABENS!";
 static const u8 s_pt_STR_RECOVERED_MOTO[] = "RECUPERASTE A TUA MOTA.";
 static const u8 s_pt_STR_NOW_GO_BREAD[] = "AGORA JA PODES IR FINALMENTE";
 static const u8 s_pt_STR_NOW_GO_BREAD_2[] = "AO PAO DE MAFRA";
