@@ -34,11 +34,10 @@
 | :--- | :--- |
 | **O / Arrow Left** | Move Left |
 | **P / Arrow Right** | Move Right |
-| **SPACE** | Launch Ball / Fire Laser / Select Menu Option |
+| **SPACE** | Launch Ball / Fire Laser / Select Menu Option / Cycle Difficulty |
 | **ESC** | Pause / Back to Menu |
 | **M** | Toggle Music |
-| **Up / Down** | Navigate Menu Options |
-| **Left / Right** | Adjust Difficulty (on Difficulty menu option) |
+| **Left / Right** | Navigate Menu Options |
 | **Touch Buttons** | Move Left/Right and Fire (Web/Mobile only) |
 
 ## How to Build

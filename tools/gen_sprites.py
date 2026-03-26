@@ -308,16 +308,6 @@ enemy_atom = [
     "bBBBbbb."
 ]
 
-# enemy_ufo = [
-#     "...ww...",
-#     "..wccw..",
-#     ".bccccb.",
-#     ".bccccb.",
-#     "bMMMMMMb",
-#     "bMMMMMMb",    
-#     "mmmmmmmm",
-#     "mmmmmmmm"
-# ]
 
 # enemy_boss_fire_large = [
 #     ".cCCCCc.",
@@ -339,16 +329,16 @@ enemy_atom = [
 #     "...c...."
 # ]
 
-enemy_fire_blue = [
-    "...cc...",    
-    "..cCCc..",
-    "..cCCc..",
-    ".ccCCCc.",
-    "cCCWWCCc",
-    "cCWWWWCc",
-    "cCWWWWCc",
-    ".cCCCCc."
-]
+# enemy_fire_blue = [
+#     "...cc...",    
+#     "..cCCc..",
+#     "..cCCc..",
+#     ".ccCCCc.",
+#     "cCCWWCCc",
+#     "cCWWWWCc",
+#     "cCWWWWCc",
+#     ".cCCCCc."
+# ]
 
 enemy_fire = [
     "...rr...",    
@@ -426,12 +416,12 @@ capsule_sprites_defs = [
     create_capsule(["WWW.", "W..W", "W..W", "WWW.", "W..W", "W..W", "WWW."], "c", "W"), # 5:  B (Break/Warp)
     create_capsule(["WWWW", "W...", "W...", "WWW.", "W...", "W...", "WWWW"], "C", "."), # 6:  E (Expand)
     create_capsule(["W..W", "WWWW", "W..W", "W..W", "W..W", "W..W", "W..W"], "M", "W"), # 7:  M (Multi)
-    create_capsule([".WWW", "..W.", "..W.", "..W.", "..W.", "..W.", ".WWW"], "B", "W"), # 8:  I (Ice)
+    create_capsule(["WWW.", ".W..", ".W..", ".W..", ".W..", ".W..", "WWW."], "B", "W"), # 8:  I (Ice)
     create_capsule(["W..W", "W..W", "W..W", "W..W", "W..W", "W..W", ".WW."], "m", "W"), # 9:  U (Magnet)
     create_capsule([".WW.", "W..W", "WWWW", "W..W", "W..W", "W..W", "W..W"], "G", "W"), # 10: A (Autopilot)
     create_capsule(["WWW.", "W..W", "W..W", "W..W", "W..W", "W..W", "WWW."], "m", "W"), # 11: D (Drunk)
     create_capsule(["W..W", "W..W", "W..W", "W..W", "W..W", ".W.W", "..W."], "o", "W"), # 12: V (Fast/Velocity)
-    create_capsule(["WWWW", ".W..", ".W..", ".W..", ".W..", ".W..", ".W.."], "r", "W"), # 13: T (Tiny)
+    create_capsule(["WWW.", ".W..", ".W..", ".W..", ".W..", ".W..", ".W.."], "r", "W"), # 13: T (Tiny)
     create_capsule(["WWWW", "W...", "WWW.", "W...", "W...", "W...", "W..."], "r", "W"), # 14: F (Fireball)
 ]
 

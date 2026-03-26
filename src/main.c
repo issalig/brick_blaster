@@ -3021,29 +3021,17 @@ void showIntro() {
 
         cpct_scanKeyboard_f();
 
-        // 2. Navigation (Up/Down)
-        if (cpct_isKeyPressed(Key_CursorUp) || cpct_isKeyPressed(Joy0_Up)) {
+        // 2. Navigation (Left/Right)
+        if (cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Joy0_Left)) {
             if (!key_held) {
                 drawBackgroundRect(21, selection_y[selection], 6, 6);
                 if (selection > 0) selection--; else selection = 4;
                 key_held = 1;
             }
-        } else if (cpct_isKeyPressed(Key_CursorDown) || cpct_isKeyPressed(Joy0_Down)) {
+        } else if (cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Joy0_Right)) {
             if (!key_held) {
                 drawBackgroundRect(21, selection_y[selection], 6, 6);
                 if (selection < 4) selection++; else selection = 0;
-                key_held = 1;
-            }
-        } else if (selection == 3 && (cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Joy0_Left))) {
-            if (!key_held) {
-                if (game_difficulty > 0) game_difficulty--; else game_difficulty = 2;
-                drawDifficultyLine();
-                key_held = 1;
-            }
-        } else if (selection == 3 && (cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Joy0_Right))) {
-            if (!key_held) {
-                if (game_difficulty < 2) game_difficulty++; else game_difficulty = 0;
-                drawDifficultyLine();
                 key_held = 1;
             }
         } else if (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) {
@@ -3095,7 +3083,7 @@ u8 showControls() {
 
     for (i = 0; i < 5; i++) {
         drawCustomText(GET_STR(ids[i][0]), 18, 60 + i * 16, PLT_BRIGHT_WHITE);
-        drawCustomText(GET_STR(ids[i][1]), 42, 60 + i * 16, PLT_BRIGHT_YELLOW);
+        drawCustomText(GET_STR(ids[i][1]), 45, 60 + i * 16, PLT_BRIGHT_YELLOW);
     }
 
     if (updateMenuLoop(1)) return 1;

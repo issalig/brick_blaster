@@ -96,7 +96,7 @@ The game features three selectable difficulty levels (Easy, Normal, Hard) that c
 | **Hard (2)** | +20 | 15% |
 
 - **Formula**: `INITIAL_BALL_SPEED + (current_level / 2) * increment`.
-- **Key Logic**: The `3` key or menu navigation cycles through difficulty levels. To prevent animation stutter, it uses optimized **partial redrawing**, refreshing only the difficulty text line during menu interaction.
+- **Key Logic**: The **Left/Right** keys cycle through options in the main menu. The **Space/Fire** key cycles through difficulty levels only when that specific menu option is selected. To prevent animation stutter, it uses optimized **partial redrawing**, refreshing only the difficulty text line during menu interaction.
 
 ## 4. Scoring System
 
