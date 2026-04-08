@@ -39,35 +39,35 @@
                     <li>
                         <span data-i18n="moveLeft">Move Left</span>
                         <div class="key-container">
-                            <span class="key">O</span>
-                            <span class="key">&larr;</span>
+                            <button class="key" data-key="79">O</button>
+                            <button class="key" data-key="37">&larr;</button>
                         </div>
                     </li>
                     <li>
                         <span data-i18n="moveRight">Move Right</span>
                         <div class="key-container">
-                            <span class="key">P</span>
-                            <span class="key">&rarr;</span>
+                            <button class="key" data-key="80">P</button>
+                            <button class="key" data-key="39">&rarr;</button>
                         </div>
                     </li>
                     <li>
                         <span data-i18n="menuNav">Menu Nav</span>
                         <div class="key-container">
-                            <span class="key">&uarr;</span>
-                            <span class="key">&darr;</span>
+                            <button class="key" data-key="38">&uarr;</button>
+                            <button class="key" data-key="40">&darr;</button>
                         </div>
                     </li>
                     <li>
                         <span data-i18n="difficultyAdj">Difficulty Adj</span>
                         <div class="key-container">
-                            <span class="key">&larr;</span>
-                            <span class="key">&rarr;</span>
+                            <button class="key" data-key="37">&larr;</button>
+                            <button class="key" data-key="39">&rarr;</button>
                         </div>
                     </li>
                     <li>
                         <span data-i18n="fire">Fire / Action</span>
                         <div class="key-container">
-                            <span class="key">SPACE</span>
+                            <button class="key" data-key="32">SPACE</button>
                         </div>
                     </li>
                 </ul>
@@ -86,6 +86,35 @@
             <span class="dot">•</span>
             <span data-i18n="creditsYear">2026</span>
         </footer>
+    </div>
+
+    <!-- Mobile Gamepad -->
+    <div class="mobile-controls" id="mobile-gamepad">
+        <div class="gamepad-group d-pad">
+            <div class="d-pad-row row-up">
+                <button class="gamepad-btn up" data-key="38">
+                    <svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+                </button>
+            </div>
+            <div class="d-pad-row row-middle">
+                <button class="gamepad-btn left" data-key="37">
+                    <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                </button>
+                <button class="gamepad-btn right" data-key="39">
+                    <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+                </button>
+            </div>
+            <div class="d-pad-row row-down">
+                <button class="gamepad-btn down" data-key="40">
+                    <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="gamepad-group">
+            <button class="gamepad-btn fire" data-key="32">
+                FIRE
+            </button>
+        </div>
     </div>
 
     <script>
@@ -107,11 +136,9 @@
         // Override original setLanguage to point to our new emulator
         const originalSetLanguage = window.setLanguage;
         window.setLanguage = function (lang) {
-            if (typeof i18n !== 'undefined' && i18n[lang]) {
-                document.querySelectorAll('[data-i18n]').forEach(el => {
-                    const key = el.getAttribute('data-i18n');
-                    if (i18n[lang][key]) el.innerHTML = i18n[lang][key];
-                });
+            // First run the original translation and state logic
+            if (originalSetLanguage) {
+                originalSetLanguage(lang);
             }
 
             // Map our DSK files
@@ -134,10 +161,90 @@
             frame.src = `tiny8bit/cpc.html?file=${relDsk}&input=${encodedCommand}`;
         };
 
-        // Initial load
-        window.onload = () => {
-            setLanguage('es');
-        };
+        // Mobile Gamepad Logic
+        function sendKey(code, type) {
+            const frame = document.getElementById('emulator-frame');
+            if (!frame || !frame.contentWindow) return;
+            
+            // Use postMessage to avoid SecurityError (CORS) on file:///
+            frame.contentWindow.postMessage({
+                type: type,
+                keyCode: code,
+                code: getKeyCodeString(code),
+                key: getKeyString(code)
+            }, '*');
+        }
+
+        function getKeyString(code) {
+            switch(code) {
+                case 37: return 'ArrowLeft';
+                case 38: return 'ArrowUp';
+                case 39: return 'ArrowRight';
+                case 40: return 'ArrowDown';
+                case 32: return ' ';
+                case 79: return 'o';
+                case 80: return 'p';
+                case 27: return 'Escape';
+                case 77: return 'm';
+                default: return '';
+            }
+        }
+
+        function getKeyCodeString(code) {
+            switch(code) {
+                case 37: return 'ArrowLeft';
+                case 38: return 'ArrowUp';
+                case 39: return 'ArrowRight';
+                case 40: return 'ArrowDown';
+                case 32: return 'Space';
+                case 79: return 'KeyO';
+                case 80: return 'KeyP';
+                default: return '';
+            }
+        }
+
+        const activeKeys = new Set();
+        
+        function handleGamepadTouch(code, isStart) {
+            if (isStart) {
+                if (!activeKeys.has(code)) {
+                    activeKeys.add(code);
+                    sendKey(code, 'keydown');
+                }
+            } else {
+                if (activeKeys.has(code)) {
+                    activeKeys.delete(code);
+                    sendKey(code, 'keyup');
+                }
+            }
+        }
+
+        document.querySelectorAll('.key, .gamepad-btn').forEach(el => {
+            const code = parseInt(el.getAttribute('data-key'));
+            if (!code) return;
+
+            const startAction = (e) => {
+                if (e.cancelable) e.preventDefault();
+                el.classList.add('active');
+                handleGamepadTouch(code, true);
+            };
+
+            const endAction = (e) => {
+                if (e.cancelable) e.preventDefault();
+                el.classList.remove('active');
+                handleGamepadTouch(code, false);
+            };
+
+            el.addEventListener('pointerdown', startAction);
+            el.addEventListener('pointerup', endAction);
+            el.addEventListener('pointerleave', endAction);
+            el.addEventListener('pointercancel', endAction);
+            
+            el.style.touchAction = 'none';
+        });
+
+        // Note: i18n.js already calls setLanguage on DOMContentLoaded
+        // so we don't need a redundant window.onload here.
     </script>
 </body>
 
