@@ -9,16 +9,18 @@ static const u8 s_es_STR_1_PLAYER[] = "1 JUGADOR";
 static const u8 s_es_STR_2_PLAYERS[] = "2 JUGADORES";
 static const u8 s_es_STR_PRESS_H_HELP[] = "AYUDA";
 static const u8 s_es_STR_CONTROLS[] = "CONTROLES";
-static const u8 s_es_STR_KEY_LEFT[] = "IZQ / O:";
-static const u8 s_es_STR_MOVE_LEFT[] = "IZQ";
-static const u8 s_es_STR_KEY_RIGHT[] = "DER / P:";
-static const u8 s_es_STR_MOVE_RIGHT[] = "DER";
+static const u8 s_es_STR_KEY_LEFT[] = "IZQ:";
+static const u8 s_es_STR_MOVE_LEFT[] = "IZQ/MENU ARRIBA";
+static const u8 s_es_STR_KEY_RIGHT[] = "DER:";
+static const u8 s_es_STR_MOVE_RIGHT[] = "DER/MENU ABAJO";
 static const u8 s_es_STR_KEY_SPACE[] = "ESPACIO:";
-static const u8 s_es_STR_FIRE[] = "DISPARO";
+static const u8 s_es_STR_FIRE[] = "DISPARO/SELECCIONAR";
 static const u8 s_es_STR_KEY_ESC[] = "ESC:";
 static const u8 s_es_STR_PAUSE[] = "PAUSA";
 static const u8 s_es_STR_KEY_M[] = "M:";
 static const u8 s_es_STR_MUSIC[] = "MUSICA";
+static const u8 s_es_STR_KEY_P[] = "P:";
+static const u8 s_es_STR_PADDLE[] = "PADDLE";
 static const u8 s_es_STR_CAPSULE_GUIDE[] = "GUIA DE CAPSULAS";
 static const u8 s_es_STR_CLUELESS[] = "PARA DESPISTADOS";
 static const u8 s_es_STR_L_DESC[] = "AGRESIVO";
@@ -66,7 +68,7 @@ static const u8 s_es_STR_DIFFICULTY[] = "DIFICULTAD: ";
 
 const u8* const lang_es[STR_COUNT] = {
     s_es_STR_1_PLAYER, s_es_STR_2_PLAYERS, s_es_STR_PRESS_H_HELP, s_es_STR_CONTROLS, s_es_STR_KEY_LEFT, s_es_STR_MOVE_LEFT, s_es_STR_KEY_RIGHT, s_es_STR_MOVE_RIGHT,
-    s_es_STR_KEY_SPACE, s_es_STR_FIRE, s_es_STR_KEY_ESC, s_es_STR_PAUSE, s_es_STR_KEY_M, s_es_STR_MUSIC, s_es_STR_CAPSULE_GUIDE, s_es_STR_CLUELESS, s_es_STR_L_DESC, s_es_STR_S_DESC,
+    s_es_STR_KEY_SPACE, s_es_STR_FIRE, s_es_STR_KEY_ESC, s_es_STR_PAUSE, s_es_STR_KEY_M, s_es_STR_MUSIC, s_es_STR_KEY_P, s_es_STR_PADDLE, s_es_STR_CAPSULE_GUIDE, s_es_STR_CLUELESS, s_es_STR_L_DESC, s_es_STR_S_DESC,
     s_es_STR_C_DESC, s_es_STR_P_DESC, s_es_STR_B_DESC, s_es_STR_E_DESC, s_es_STR_M_DESC, s_es_STR_I_DESC, s_es_STR_U_DESC, s_es_STR_A_DESC, s_es_STR_D_DESC,
     s_es_STR_V_DESC, s_es_STR_T_DESC, s_es_STR_F_DESC, s_es_STR_CONGRATS, s_es_STR_RECOVERED_MOTO, s_es_STR_NOW_GO_BREAD,
     s_es_STR_NOW_GO_BREAD_2, s_es_STR_EAT_SANDWICH, s_es_STR_SQUID_BOCATA, s_es_STR_GAME_OVER, s_es_STR_NO_MOTO_NO_EAT, s_es_STR_GAME_OVER_SUB2, s_es_STR_STORY_1, s_es_STR_STORY_2, s_es_STR_STORY_3, s_es_STR_STORY_4, s_es_STR_STORY_5,

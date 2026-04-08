@@ -9,16 +9,18 @@ static const u8 s_va_STR_1_PLAYER[] = "1 JUGADOR";
 static const u8 s_va_STR_2_PLAYERS[] = "2 JUGADORS";
 static const u8 s_va_STR_PRESS_H_HELP[] = "AJUDA";
 static const u8 s_va_STR_CONTROLS[] = "CONTROLS";
-static const u8 s_va_STR_KEY_LEFT[] = "ESQ / O:";
-static const u8 s_va_STR_MOVE_LEFT[] = "MOURE ESQUERRA";
-static const u8 s_va_STR_KEY_RIGHT[] = "DRE / P:";
-static const u8 s_va_STR_MOVE_RIGHT[] = "MOURE DRETA";
+static const u8 s_va_STR_KEY_LEFT[] = "ESQ:";
+static const u8 s_va_STR_MOVE_LEFT[] = "ESQ/MENU DALT";
+static const u8 s_va_STR_KEY_RIGHT[] = "DRE:";
+static const u8 s_va_STR_MOVE_RIGHT[] = "DRE/MENU BAIX";
 static const u8 s_va_STR_KEY_SPACE[] = "ESPAI:";
-static const u8 s_va_STR_FIRE[] = "DISPARO";
+static const u8 s_va_STR_FIRE[] = "DISPARO/SELECCIONAR";
 static const u8 s_va_STR_KEY_ESC[] = "ESC:";
 static const u8 s_va_STR_PAUSE[] = "PAUSA";
 static const u8 s_va_STR_KEY_M[] = "M:";
 static const u8 s_va_STR_MUSIC[] = "MUSICA";
+static const u8 s_va_STR_KEY_P[] = "P:";
+static const u8 s_va_STR_PADDLE[] = "PADDLE";
 static const u8 s_va_STR_CAPSULE_GUIDE[] = "GUIA DE CAPSULES";
 static const u8 s_va_STR_CLUELESS[] = "PER ALS DESPISTATS";
 static const u8 s_va_STR_L_DESC[] = "AGRESIU";
@@ -66,7 +68,7 @@ static const u8 s_va_STR_DIFFICULTY[] = "DIFICULTAT: ";
 
 const u8* const lang_va[STR_COUNT] = {
     s_va_STR_1_PLAYER, s_va_STR_2_PLAYERS, s_va_STR_PRESS_H_HELP, s_va_STR_CONTROLS, s_va_STR_KEY_LEFT, s_va_STR_MOVE_LEFT, s_va_STR_KEY_RIGHT, s_va_STR_MOVE_RIGHT,
-    s_va_STR_KEY_SPACE, s_va_STR_FIRE, s_va_STR_KEY_ESC, s_va_STR_PAUSE, s_va_STR_KEY_M, s_va_STR_MUSIC, s_va_STR_CAPSULE_GUIDE, s_va_STR_CLUELESS, s_va_STR_L_DESC, s_va_STR_S_DESC,
+    s_va_STR_KEY_SPACE, s_va_STR_FIRE, s_va_STR_KEY_ESC, s_va_STR_PAUSE, s_va_STR_KEY_M, s_va_STR_MUSIC, s_va_STR_KEY_P, s_va_STR_PADDLE, s_va_STR_CAPSULE_GUIDE, s_va_STR_CLUELESS, s_va_STR_L_DESC, s_va_STR_S_DESC,
     s_va_STR_C_DESC, s_va_STR_P_DESC, s_va_STR_B_DESC, s_va_STR_E_DESC, s_va_STR_M_DESC, s_va_STR_I_DESC, s_va_STR_U_DESC, s_va_STR_A_DESC, s_va_STR_D_DESC,
     s_va_STR_V_DESC, s_va_STR_T_DESC, s_va_STR_F_DESC, s_va_STR_CONGRATS, s_va_STR_RECOVERED_MOTO, s_va_STR_NOW_GO_BREAD,
     s_va_STR_NOW_GO_BREAD_2, s_va_STR_EAT_SANDWICH, s_va_STR_SQUID_BOCATA, s_va_STR_GAME_OVER, s_va_STR_NO_MOTO_NO_EAT, s_va_STR_GAME_OVER_SUB2, s_va_STR_STORY_1, s_va_STR_STORY_2, s_va_STR_STORY_3, s_va_STR_STORY_4, s_va_STR_STORY_5,

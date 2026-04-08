@@ -23,6 +23,8 @@ typedef enum {
     STR_PAUSE,
     STR_KEY_M,
     STR_MUSIC,
+    STR_KEY_P,
+    STR_PADDLE,
     STR_CAPSULE_GUIDE,
     STR_CLUELESS,
     STR_L_DESC,

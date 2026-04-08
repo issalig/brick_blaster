@@ -9,16 +9,18 @@ static const u8 s_gr_STR_1_PLAYER[] = "1 PAIKTHS";
 static const u8 s_gr_STR_2_PLAYERS[] = "2 PAIKTES";
 static const u8 s_gr_STR_PRESS_H_HELP[] = "VOHTHEIA";
 static const u8 s_gr_STR_CONTROLS[] = "XEIRISTHRIA";
-static const u8 s_gr_STR_KEY_LEFT[] = "ARISTERA/O:";
-static const u8 s_gr_STR_MOVE_LEFT[] = "KINHSH ARISTERA";
-static const u8 s_gr_STR_KEY_RIGHT[] = "DEXIA/P:";
-static const u8 s_gr_STR_MOVE_RIGHT[] = "KINHSH DEXIA";
+static const u8 s_gr_STR_KEY_LEFT[] = "ARISTERA:";
+static const u8 s_gr_STR_MOVE_LEFT[] = "ARISTERA/MENU PANW";
+static const u8 s_gr_STR_KEY_RIGHT[] = "DEXIA:";
+static const u8 s_gr_STR_MOVE_RIGHT[] = "DEXIA/MENU KATW";
 static const u8 s_gr_STR_KEY_SPACE[] = "SPACE:";
-static const u8 s_gr_STR_FIRE[] = "VOLH";
+static const u8 s_gr_STR_FIRE[] = "VOLH/EPILOGH";
 static const u8 s_gr_STR_KEY_ESC[] = "ESC:";
 static const u8 s_gr_STR_PAUSE[] = "PAYSH";
 static const u8 s_gr_STR_KEY_M[] = "M:";
 static const u8 s_gr_STR_MUSIC[] = "MOYSIKH";
+static const u8 s_gr_STR_KEY_P[] = "P:";
+static const u8 s_gr_STR_PADDLE[] = "PADDLE";
 static const u8 s_gr_STR_CAPSULE_GUIDE[] = "ODHGOS KAPSOYLWN";
 static const u8 s_gr_STR_CLUELESS[] = "GIA ARXARIOYS";
 static const u8 s_gr_STR_L_DESC[] = "EPITHETIKOS";
@@ -66,7 +68,7 @@ static const u8 s_gr_STR_DIFFICULTY[] = "DYSKOLIA: ";
 
 const u8* const lang_gr[STR_COUNT] = {
     s_gr_STR_1_PLAYER, s_gr_STR_2_PLAYERS, s_gr_STR_PRESS_H_HELP, s_gr_STR_CONTROLS, s_gr_STR_KEY_LEFT, s_gr_STR_MOVE_LEFT, s_gr_STR_KEY_RIGHT, s_gr_STR_MOVE_RIGHT,
-    s_gr_STR_KEY_SPACE, s_gr_STR_FIRE, s_gr_STR_KEY_ESC, s_gr_STR_PAUSE, s_gr_STR_KEY_M, s_gr_STR_MUSIC, s_gr_STR_CAPSULE_GUIDE, s_gr_STR_CLUELESS, s_gr_STR_L_DESC, s_gr_STR_S_DESC,
+    s_gr_STR_KEY_SPACE, s_gr_STR_FIRE, s_gr_STR_KEY_ESC, s_gr_STR_PAUSE, s_gr_STR_KEY_M, s_gr_STR_MUSIC, s_gr_STR_KEY_P, s_gr_STR_PADDLE, s_gr_STR_CAPSULE_GUIDE, s_gr_STR_CLUELESS, s_gr_STR_L_DESC, s_gr_STR_S_DESC,
     s_gr_STR_C_DESC, s_gr_STR_P_DESC, s_gr_STR_B_DESC, s_gr_STR_E_DESC, s_gr_STR_M_DESC, s_gr_STR_I_DESC, s_gr_STR_U_DESC, s_gr_STR_A_DESC, s_gr_STR_D_DESC,
     s_gr_STR_V_DESC, s_gr_STR_T_DESC, s_gr_STR_F_DESC, s_gr_STR_CONGRATS, s_gr_STR_RECOVERED_MOTO, s_gr_STR_NOW_GO_BREAD,
     s_gr_STR_NOW_GO_BREAD_2, s_gr_STR_EAT_SANDWICH, s_gr_STR_SQUID_BOCATA, s_gr_STR_GAME_OVER, s_gr_STR_NO_MOTO_NO_EAT, s_gr_STR_GAME_OVER_SUB2, s_gr_STR_STORY_1, s_gr_STR_STORY_2, s_gr_STR_STORY_3, s_gr_STR_STORY_4, s_gr_STR_STORY_5,

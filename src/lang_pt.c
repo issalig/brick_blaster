@@ -9,16 +9,18 @@ static const u8 s_pt_STR_1_PLAYER[] = "1 JOGADOR";
 static const u8 s_pt_STR_2_PLAYERS[] = "2 JOGADORES";
 static const u8 s_pt_STR_PRESS_H_HELP[] = "AJUDA";
 static const u8 s_pt_STR_CONTROLS[] = "CONTROLOS";
-static const u8 s_pt_STR_KEY_LEFT[] = "ESQ / O:";
-static const u8 s_pt_STR_MOVE_LEFT[] = "PARA A ESQUERDA";
-static const u8 s_pt_STR_KEY_RIGHT[] = "DIR / P:";
-static const u8 s_pt_STR_MOVE_RIGHT[] = "PARA A DIREITA";
+static const u8 s_pt_STR_KEY_LEFT[] = "ESQ:";
+static const u8 s_pt_STR_MOVE_LEFT[] = "ESQ/MENU CIMA";
+static const u8 s_pt_STR_KEY_RIGHT[] = "DIR:";
+static const u8 s_pt_STR_MOVE_RIGHT[] = "DIR/MENU BAIXO";
 static const u8 s_pt_STR_KEY_SPACE[] = "ESPACO:";
-static const u8 s_pt_STR_FIRE[] = "DISPARO";
+static const u8 s_pt_STR_FIRE[] = "DISPARO/AVANCAR";
 static const u8 s_pt_STR_KEY_ESC[] = "ESC:";
 static const u8 s_pt_STR_PAUSE[] = "PAUSA";
 static const u8 s_pt_STR_KEY_M[] = "M:";
 static const u8 s_pt_STR_MUSIC[] = "MUSICA";
+static const u8 s_pt_STR_KEY_P[] = "P:";
+static const u8 s_pt_STR_PADDLE[] = "PADDLE";
 static const u8 s_pt_STR_CAPSULE_GUIDE[] = "GUIA DE CAPSULAS";
 static const u8 s_pt_STR_CLUELESS[] = "PARA DESPISTADOS";
 static const u8 s_pt_STR_L_DESC[] = "PARA DAR PORRADA";
@@ -66,7 +68,7 @@ static const u8 s_pt_STR_DIFFICULTY[] = "DIFICULDADE: ";
 
 const u8* const lang_pt[STR_COUNT] = {
     s_pt_STR_1_PLAYER, s_pt_STR_2_PLAYERS, s_pt_STR_PRESS_H_HELP, s_pt_STR_CONTROLS, s_pt_STR_KEY_LEFT, s_pt_STR_MOVE_LEFT, s_pt_STR_KEY_RIGHT, s_pt_STR_MOVE_RIGHT,
-    s_pt_STR_KEY_SPACE, s_pt_STR_FIRE, s_pt_STR_KEY_ESC, s_pt_STR_PAUSE, s_pt_STR_KEY_M, s_pt_STR_MUSIC, s_pt_STR_CAPSULE_GUIDE, s_pt_STR_CLUELESS, s_pt_STR_L_DESC, s_pt_STR_S_DESC,
+    s_pt_STR_KEY_SPACE, s_pt_STR_FIRE, s_pt_STR_KEY_ESC, s_pt_STR_PAUSE, s_pt_STR_KEY_M, s_pt_STR_MUSIC, s_pt_STR_KEY_P, s_pt_STR_PADDLE, s_pt_STR_CAPSULE_GUIDE, s_pt_STR_CLUELESS, s_pt_STR_L_DESC, s_pt_STR_S_DESC,
     s_pt_STR_C_DESC, s_pt_STR_P_DESC, s_pt_STR_B_DESC, s_pt_STR_E_DESC, s_pt_STR_M_DESC, s_pt_STR_I_DESC, s_pt_STR_U_DESC, s_pt_STR_A_DESC, s_pt_STR_D_DESC,
     s_pt_STR_V_DESC, s_pt_STR_T_DESC, s_pt_STR_F_DESC, s_pt_STR_CONGRATS, s_pt_STR_RECOVERED_MOTO, s_pt_STR_NOW_GO_BREAD,
     s_pt_STR_NOW_GO_BREAD_2, s_pt_STR_EAT_SANDWICH, s_pt_STR_SQUID_BOCATA, s_pt_STR_GAME_OVER, s_pt_STR_NO_MOTO_NO_EAT, s_pt_STR_GAME_OVER_SUB2, s_pt_STR_STORY_1, s_pt_STR_STORY_2, s_pt_STR_STORY_3, s_pt_STR_STORY_4, s_pt_STR_STORY_5,

@@ -181,25 +181,14 @@ bg_pattern_2 = [
 ]
 
 bg_pattern_3 = [
-    "BBBBbbbb",
-    "BBBbbbbb",
-    "BBbbbbbb",
-    "Bbbbbbbb",
-    "bbbbBBBB",
-    "bbbbbBBB",
-    "bbbbbbBB",
-    "bbbbbbbB"
-]
-
-bg_pattern_4 = [
-    "ccGGGGcc",
-    "cGggggGc",
-    "GgccccgG",
-    "gccccccg",
-    "gccccccg",
-    "GgccccgG",
-    "cGggggGc",
-    "ccGGGGcc"
+    "ccBBBBcc",
+    "cBbbbbBc",
+    "bBbbbbBb",
+    "BBbbbbBB",
+    "BBbbbbBB",
+    "bBbbbbBb",
+    "cBbbbbBc",
+    "ccBBBBcc"
 ]
 
 # 14 pixels x 6 lines (matching BRICK_WIDTH_BYTES 7 and BRICK_HEIGHT 6)
@@ -427,7 +416,7 @@ capsule_sprites_defs = [
 
 
 
-bg_patterns = [bg_pattern_0, bg_pattern_1, bg_pattern_2, bg_pattern_3, bg_pattern_4]
+bg_patterns = [bg_pattern_0, bg_pattern_1, bg_pattern_2, bg_pattern_3]
 
 out_c += f"#define PATTERN_WIDTH_BYTES {(len(bg_pattern_0[0]) + 1) // 2}\n"
 out_c += f"#define PATTERN_HEIGHT      {len(bg_pattern_0)}\n"

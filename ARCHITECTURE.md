@@ -308,5 +308,15 @@ The `Makefile` automates the complex mapping required for different localized bu
 -   **Memory Alignment **: Unlike standard builds that load at `&1C00`, snapshots inject the binary starting at **`&0500`**. This ensures that the **Arkos Tracker music data** (placed at the beginning of the binary) is correctly mapped.
 -   **Build Rules**: Standard snapshots (V1) are generated via `make sna LANG=XX`, while V2 versions are available via `make sna_v2 LANG=XX`. Batch generation is supported via `all_sna` and `all_sna_v2`.
 
+## 14. Hardware Integration: Digital Paddle (10-bit)
+
+Brick Blaster has support for custom digital paddle controllers.
+
+- **Hardware Interface**: The custom paddle uses an external Analog-to-Digital Converter (ADC) to translate analog potentiometer rotation into a digital signal through the joystick ports.
+Check [cpc_paddle](https://github.com/issalig/cpc_paddle) for more information.
+- **Keyboard Matrix Mapping**:
+    - **Bits 0-6 (Lower 7 bits)**: Read via the Joystick 1 port (`Keyboard Row 6`, bitmasking `0x7F`).
+    - **Action Button**: The paddle's primary fire button triggers Joystick 0's Fire 2 (`Row 9, Bit 4`).
+
 ---
 *Brick Blaster Architecture - Documented for the future.* 🕹️🧠

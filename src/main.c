@@ -4,7 +4,7 @@
  * @author  issalig
  * 
  * Target:  Amstrad CPC 464/6128 (Mode 0)
- * Library: CPCtelera 1.7+
+ * Library: CPCtelera 1.4.2
  * 
  * License: MIT License (c) 2026 issalig
  * ----------------------------------------------------
@@ -86,9 +86,6 @@
 #define COLOR_LASER         PLT_BRIGHT_YELLOW  // HW_BRIGHT_YELLOW in palette slot 14
 
 // --- Brick byte encoding ---
-// Bits 0-1: Type
-// Bits 2-4: Color (0-7 -> 8 palette slots)
-// Bits 5-7: Power-up (0=none, 1=laser, 2=slow, 3=glue, 4=life, ...)
 // Bits 0-1: Type
 // Bits 2-3: Color (0-3 -> 4 palette slots)
 // Bits 4-7: Power-up (0-15 types supported)
@@ -203,41 +200,32 @@ typedef struct {
     u16 score;
     u8  current_level;
     u8  bricks[BRICK_ROWS][BRICK_COLS];
+    u8  brick_map[BRICK_ROWS][BRICK_COLS]; // Persistent color/powerup map
     u8  active_bricks;
     u8  score_str[7];
     u8  level_cleared; // 1 if this player just finished a level
+    u16 enemy_spawn_timer;
+    u8  enemy_spawn_threshold;
 } player_state_t;
 
-paddle_t paddle;
-ball_t ball;
-drop_t drop;
-laser_pair_t lasers[MAX_LASER_PAIRS];
-ball_t extra_balls[MAX_EXTRA_BALLS];
-enemy_t enemies[MAX_ENEMIES];
-boss_t boss;
-
-// --- Game State and Flags ---
-u8 brick_map[BRICK_ROWS][BRICK_COLS];
-u8 bricks[BRICK_ROWS][BRICK_COLS];
-u16 enemy_spawn_timer;
-u8 current_level;
-u8 lives;
-u8 active_bricks;
-u16 score;
-u8 score_str[7];
-u8 hud_dirty;     // 1 = HUD needs redraw this frame (score/lives/level changed)
-u8 paused;        // 1 = game is paused
-u8 music_on;      // 1 = music+sfx playing, 0 = muted (M key toggle)
-
-// --- 2-Player Mode Globals ---
-player_state_t players[2];
-u8 num_players;     // 1 or 2
-u8 current_player;  // 0 or 1
-u8 level_cleared;   // Global flag to trigger level transition
-
-// --- Input and Edge Detection ---
-u8 key_m_held;    // Edge detection for M key
-u8 key_esc_held;  // Edge detection for ESC key (Toggle pause)
+typedef struct {
+    u8 paused;          // 1 = game is paused
+    u8 music_on;        // 1 = music+sfx playing, 0 = muted (M key toggle)
+    u8 hud_dirty;       // 1 = HUD needs redraw this frame (score/lives/level changed)
+    u8 game_difficulty; // 0=Easy, 1=Normal, 2=Hard
+    u8 num_players;     // 1 or 2
+    u8 current_player;  // 0 or 1
+    u8 game_won;        // 1 = player defeated the boss
+    u8 demo_mode;       // 1 = automated demo mode
+    u8 demo_fire_timer; // for auto-firing lasers
+    u8 launch_timer;    // Counts down from 250 (5s at 50Hz); ball auto-launches at 0
+    u8 m_held;          // Edge detection for M key
+    u8 esc_held;        // Edge detection for ESC key (Toggle pause)
+    u8 use_paddle;      // 1 = use analog paddle, 0 = use keyboard/joystick
+    u8 p_held;          // Edge detection for P key (Analog paddle toggle)
+    u8 paddle_last_raw;   // Last raw value for spike detection
+} system_state_t;
+system_state_t sys;
 
 typedef struct {
     u8  glue_active;
@@ -259,33 +247,47 @@ typedef struct {
 
 powerup_state_t powerups;
 
-u8 victory_walk;     // 1 = boss dead, just walk to exit
-u16 victory_palette_timer;
-u8 victory_palette_offset;
-u8 door_open;        // 1 = exit door is open
+typedef struct {
+    u8 walk;            // 1 = boss dead, just walk to exit
+    u16 palette_timer;
+    u8 palette_offset;
+} victory_state_t;
+victory_state_t victory;
+
+typedef struct {
+    u8 open;            // 1 = exit door is open
+    u8 anim_frame;
+    u8 anim_timer;
+} door_state_t;
+door_state_t door;
+
 // Door Energy Field Animation State
 #define DOOR_ANIM_SPEED 4
-u8 door_anim_frame;
-u8 door_anim_timer;
-u8 demo_mode;         // 1 = automated demo mode
-u8 demo_fire_timer;   // for auto-firing lasers
-u8 game_difficulty;   // 0=Easy, 1=Normal, 2=Hard
-u8 launch_timer;      // Counts down from 250 (5s at 50Hz); ball auto-launches at 0
-u8 game_won;          // 1 = player defeated the boss
 
-static u8 getBrickSpriteIndex(u8 r, u8 c) {
-    u8 btype = BRICK_TYPE(brick_map[r][c]);
-    if (btype == BTYPE_HARD) return 8;
-    if (btype == BTYPE_GOLD) return 9;
-    return BRICK_COLOR(brick_map[r][c]);
-}
+// Game objects
+paddle_t paddle;
+ball_t ball;
+drop_t drop;
+laser_pair_t lasers[MAX_LASER_PAIRS];
+ball_t extra_balls[MAX_EXTRA_BALLS];
+enemy_t enemies[MAX_ENEMIES];
+boss_t boss;
+player_state_t player; // Active player state
+player_state_t players[2]; // 2 players state
 
 // Pre-computed background rows for blazing fast rendering without stack allocation overhead
 u8 bg_row_cache[8][80];
 
+static u8 getBrickSpriteIndex(u8 r, u8 c) {
+    u8 btype = BRICK_TYPE(player.brick_map[r][c]);
+    if (btype == BTYPE_HARD) return 8;
+    if (btype == BTYPE_GOLD) return 9;
+    return BRICK_COLOR(player.brick_map[r][c]);
+}
+
 void initBackgroundCache() {
     u8 r, c;
-    if (current_level == NUM_LEVELS - 1) {
+    if (player.current_level == NUM_LEVELS - 1) {
         // Boss level: all black
         for (r = 0; r < 8; r++) {
             for (c = 0; c < 80; c++) {
@@ -293,7 +295,7 @@ void initBackgroundCache() {
             }
         }
     } else {
-        u8 p_idx = (current_level % NUM_BG_PATTERNS); // Use modulo to stay within bounds [0..3]
+        u8 p_idx = (player.current_level % NUM_BG_PATTERNS); // Use modulo to stay within bounds [0..3]
         const u8* pattern = bg_patterns[p_idx];
         for (r = 0; r < 8; r++) {
             const u8* pat_row = pattern + (r << 2); 
@@ -346,9 +348,6 @@ u8 flash_c[MAX_FLASH];
 u8 flash_timer[MAX_FLASH];
 
 u16 rng_seed; // Galois LFSR seed (must be non-zero)
-
-// --- Difficulty and Spawning ---
-u8 enemy_spawn_threshold;
 
 
 // =============================================================================
@@ -444,9 +443,8 @@ const u8 default_palette[16] = {
     HW_YELLOW,          // 15: 'y'
 };
 
-
-
 u8 hw_palette[16];
+// Enemy movement LUT
 const i8 enemy_dx_lut[16] = { 1, 1, 1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, -1 };
 
 // Pending capsule erase (set when drop deactivates so drawGame can clean up)
@@ -471,42 +469,42 @@ u8 drop_erase_y;
 
 const u8 level_data [NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
     { // Level 1: "The Wall" - Simple first level
-        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
-        { N(0),N(0),    N(0), N(1), N(2), N(2), N(1), N(0), N(0),N(0) },
-        { N(0),N(0),    N(0), N(1), N(2), N(2), N(1), N(0), N(0),N(0) },
-        { N(0),N(0),    N(0), N(1), N(3), N(3), N(1), N(0), N(0),N(0) },
-        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
-        { N(0),N(0),    N(0), N(1), N(3), N(3), N(1), N(0), N(0),N(0) },
-        { N(0),N(0),    N(0), N(1), N(2), N(2), N(1), N(0), N(0),N(0) },
-        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
-        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
-        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ }
+        {    _,    _,    _,    _,    _,    _,   _,    _,    _,     _ },
+        { N(0), N(0), N(0), N(1), N(2), N(2), N(1), N(0), N(0), N(0) },
+        { N(0), N(0), N(0), N(1), N(2), N(2), N(1), N(0), N(0), N(0) },
+        { N(0), N(0), N(0), N(1), N(3), N(3), N(1), N(0), N(0), N(0) },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        { N(0), N(0), N(0), N(1), N(3), N(3), N(1), N(0), N(0), N(0) },
+        { N(0), N(0), N(0), N(1), N(2), N(2), N(1), N(0), N(0), N(0) },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ }
     },
 
     { // Level 2: "The Vault" - Hard shell with hidden Laser and Expand
         { _,    H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3), _ },
-        { _,    H(3), N(0), N(1), N(2), N(3), N(0), N(0), H(3), _ },
-        { _,    H(3), N(0), N(1), N(2), N(3), N(0), N(0), H(3), _ },
-        { _,    H(3), N(1), N(2), N(3), N(0), N(0), N(1), H(3), _ },
-        { _,    H(3), N(2), _,    _,    _,    _,    N(2), H(3), _ },
+        { _,    H(3), N(0), N(1), N(2), N(2), N(1), N(0), H(3), _ },
+        { _,    H(3), N(0), N(2), N(3), N(3), N(2), N(0), H(3), _ },
+        { _,    H(3), N(1), N(2), N(3), N(3), N(2), N(1), H(3), _ },
         { _,    H(3), N(3), _,    _,    _,    _,    N(3), H(3), _ },
-        { _,    H(3), N(0), N(0), N(1), N(2), N(3), N(0), H(3), _ },
-        { _,    H(3), N(0), N(1), N(2), N(3), N(0), N(0), H(3), _ },
-        { _,    H(3), N(0), N(1), N(2), N(3), N(0), N(0), H(3), _ },
+        { _,    H(3), N(3), _,    _,    _,    _,    N(3), H(3), _ },
+        { _,    H(3), N(1), N(2), N(3), N(3), N(2), N(1), H(3), _ },
+        { _,    H(3), N(0), N(2), N(3), N(3), N(2), N(0), H(3), _ },
+        { _,    H(3), N(0), N(1), N(2), N(2), N(1), N(0), H(3), _ },
         { _,    H(3), H(3), H(3), H(3), H(3), H(3), H(3), H(3), _ }
     },
 
     { // Level 3: "Space Invader" - Tribute to the classic arcade icon
-        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
-        { _,    _,    _,    N(2), N(2), N(2), N(2), _,    _,    _ },
-        { _,    _,    N(2), N(2), N(2), N(2), N(2), N(2), _,    _ },
-        { _,    N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2), _ },
-        { _,    N(2), N(2), G(1), N(2), N(2), G(1), N(2), N(2), _ },
-        { _,    N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2), _ },
-        { _,    _,    _,    N(2), N(1), N(1), N(2), _,    _,    _ },
-        { _,    _,    N(2), _,    N(2), N(2), _,    N(2), _,    _ },
-        { _,    N(2), _,    _,    _,    _,    _,    _,    N(2), _ },
-        { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ }
+        { N(2), N(2), N(2),    _,    _,    _,    _, N(2), N(2), N(2) },
+        { _,    _,    _,    N(2), N(2), N(2), N(2),    _,    _,    _ },
+        { _,    _,    N(2), N(2), N(2), N(2), N(2), N(2),    _,    _ },
+        { _,    N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2),    _ },
+        { _,    N(2), N(2), G(1), N(2), N(2), G(1), N(2), N(2),    _ },
+        { _,    N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2),    _ },
+        { _,    N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2),    _ },
+        { _,    _,    _,    N(2), N(1), N(1), N(2),    _,    _,    _ },
+        { _,    _,    N(2), _,    N(2), N(2), _,    N(2),    _,    _ },
+        { _,    N(2), _,    _,    _,    _,    _,    _,    N(2),    _ }
     },
 
     { // Level 4: "The Hourglass" - Tight squeeze
@@ -535,7 +533,8 @@ const u8 level_data [NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
         {    _,    _,    _,    _, N(0), N(0),    _,    _,    _,    _ }
     },
 
-    { // Level 6: "The Beer Mug" - Refreshing mid-game snack
+    //{ // Level 6: "The Beer Mug" - Refreshing mid-game snack
+    /*
         { _,    H(0), H(0), H(0), H(0), H(0), _,    _,    _,    _ },
         { _,    H(0), H(0), H(0), H(0), H(0), _,    _,    _,    _ },
         { _,    N(1), N(1), N(1), N(1), N(1), H(0), H(0), _,    _ },
@@ -546,6 +545,20 @@ const u8 level_data [NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
         { _,    N(1), N(1), N(1), N(1), N(1), _,    _,    _,    _ },
         { _,    N(1), N(1), N(1), N(1), N(1), _,    _,    _,    _ },
         { _,    H(0), H(0), H(0), H(0), H(0), _,    _,    _,    _ }        
+    },
+    */
+
+    { // Level 6: "The ZigZag"
+        { N(3), N(3), N(3), N(3), N(3), N(3), N(3), N(3), N(3), N(3) },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        { N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2), N(2) },
+        { G(0), G(0), G(0), G(0), G(0), G(0), G(0), G(0), G(0),    _ },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        { N(1), N(1), N(1), N(1), N(1), N(1), N(1), N(1), N(1), N(1) },
+        {   _ , G(0), G(0), G(0), G(0), G(0), G(0), G(0), G(0), G(0) },
+        {   _,    _,    _,    _,    _,    _,    _,    _,    _,    _  },
+        { N(0), N(0), N(0), N(0), N(0), N(0), N(0), N(0), N(0), N(0) },
+        { G(0), G(0), G(0), G(0), G(0), G(0), G(0), G(0), G(0), H(0) }        
     },
 
     { // Level 7: "The Triangle"
@@ -563,14 +576,14 @@ const u8 level_data [NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
 
     { // Level 8: "The Checkerboard" - A classic geometric challenge
         { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
-        { _,    N(1), _,    N(2), _,    N(3), _,    N(0), H(0), _ },
+        { _,    N(1), H(1), N(2), H(1), N(3), H(1), N(0), H(0), _ },
         { _,    H(0), N(1), _,    N(2), _,    N(3), _,    N(0), _ },
         { _,    N(2), _,    N(3), _,    N(0), _,    N(1), H(0), _ },
         { _,    H(0), N(2), _,    N(3), _,    N(0), _,    N(1), _ },
         { _,    N(3), _,    N(0), _,    N(1), _,    N(2), H(0), _ },
         { _,    H(0), N(3), _,    N(0), _,    N(1), _,    N(2), _ },
         { _,    N(0), _,    N(1), _,    N(2), _,    N(3), H(0), _ },
-        { _,    H(0), N(0), _,    N(1), _,    N(2), _,    N(3), _ },
+        { _,    H(0), N(0), H(1), N(1), H(1), N(2), H(1), N(3), _ },
         { _,    _,    _,    _,    _,    _,    _,    _,    _,    _ }
     },
 
@@ -600,17 +613,17 @@ const u8 level_data [NUM_LEVELS][BRICK_ROWS][BRICK_COLS] = {
         { _,    _,    _,    _,    N(0), N(0), _,    _,    _,    _ }
     },
 
-    { // Level 11: "The Boss Room"
-        { _, _, _, _, _, _, _, _, _, _ },
-        { _, _, _, _, _, _, _, _, _, _ },
-        { _, _, _, _, _, _, _, _, _, _ },
-        { _, _, _, _, _, _, _, _, _, _ },
-        { _, _, _, _, _, _, _, _, _, _ },
-        { _, _, _, _, _, _, _, _, _, _ },
-        { _, _, _, _, _, _, _, _, _, _ },
-        { _, _, _, _, _, _, _, _, _, _ },
-        { _, _, _, _, _, _, _, _, _, _ },
-        { _, _, _, _, _, _, _, _, _, _ }
+    { // Level 11: "The Boss Room" An easy final.
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ },       
+        {    _,    _,    _,    _,    _,    _,    _,    _,    _,    _ }
     },
 };
 
@@ -775,7 +788,7 @@ void applyPowerup(u8 ptype) {
     cpct_akp_SFXPlay(3, 15, 72, 0, 40, AY_CHANNEL_ALL);
 
     // Cancel conflicting power-ups and consolidate balls when a new one is picked.
-    if (ptype != BPOWER_LIFE && ptype != BPOWER_MULTI) {
+    if (ptype != BPOWER_LIFE) {
         // Find the highest active ball (smallest Y) to keep it as the main ball
         u8 best_y = 255;
         i8 best_idx = -2; // -2: none, -1: main, 0..N: extra_balls
@@ -865,7 +878,7 @@ void applyPowerup(u8 ptype) {
     } else if (ptype == BPOWER_GLUE) {
         powerups.glue_active = 1;
     } else if (ptype == BPOWER_LIFE) {
-        if (lives < 9) { lives++; hud_dirty = 1; }
+        if (player.lives < 9) { player.lives++; sys.hud_dirty = 1; }
     } else if (ptype == BPOWER_SLOW) {
         if (!powerups.slow_active) {
             powerups.slow_active = 1;
@@ -892,7 +905,7 @@ void applyPowerup(u8 ptype) {
         powerups.magnet_active = 1;
     }
 
-    hud_dirty = 1;
+    sys.hud_dirty = 1;
 }
 
 // Fire a laser pair (left + right beams) from the paddle edges, using a free slot.
@@ -912,29 +925,29 @@ void fireLaser() {
 }
 
 // Apply the effect of a laser beam hitting brick at (r, c).
-// Returns 1 if all bricks cleared (nextLevel already called), 0 otherwise.
+// Returns 1 if all player.bricks cleared (nextLevel already called), 0 otherwise.
 u8 laserHitBrick(u8 r, u8 c) {
-    if (bricks[r][c] == BSTATE_HARD) {
-        bricks[r][c] = BSTATE_NORMAL;
-        score += 2;
+    if (player.bricks[r][c] == BSTATE_HARD) {
+        player.bricks[r][c] = BSTATE_NORMAL;
+        player.score += 2;
         flashBrick(r, c);
-    } else if (bricks[r][c] == BSTATE_GOLD) {
+    } else if (player.bricks[r][c] == BSTATE_GOLD) {
         // Gold brick: indestructible — just flash, laser is consumed
         flashBrick(r, c);
     } else {
         // Normal brick: destroy and check for level clear
-        bricks[r][c] = BSTATE_NEEDS_ERASE;
+        player.bricks[r][c] = BSTATE_NEEDS_ERASE;
         if (erase_count < MAX_ERASE) {
             erase_r[erase_count] = r;
             erase_c[erase_count] = c;
             erase_count++;
         }
-        score += 5;
-        active_bricks--;
+        player.score += 5;
+        player.active_bricks--;
         cpct_akp_SFXPlay(8, 15, 77, 0, 0, AY_CHANNEL_ALL); // F5 // SFX: brick destroyed by laser
     }
-    hud_dirty = 1;
-    if (active_bricks == 0) {
+    sys.hud_dirty = 1;
+    if (player.active_bricks == 0) {
         nextLevel();
         return 1;
     }
@@ -968,8 +981,8 @@ void updateLasers() {
                     (lasers[i].x_right + LASER_WIDTH >= enemies[e].x && lasers[i].x_right <= enemies[e].x + ENEMY_WIDTH)) {
                     enemies[e].active = 0;
                     lasers[i].active = 0;
-                    score += 50;
-                    hud_dirty = 1;
+                    player.score += 50;
+                    sys.hud_dirty = 1;
                     cpct_akp_SFXPlay(13, 15, 36, 0, 0, AY_CHANNEL_ALL); // SFX: enemy killed by laser
                 }
             }
@@ -984,12 +997,12 @@ void updateLasers() {
             u8 col_r = g_x_to_col[lasers[i].x_right];
             
             // Check left beam
-            if (col_l != 0xFF && bricks[r][col_l] != BSTATE_EMPTY && bricks[r][col_l] != BSTATE_NEEDS_ERASE) {
+            if (col_l != 0xFF && player.bricks[r][col_l] != BSTATE_EMPTY && player.bricks[r][col_l] != BSTATE_NEEDS_ERASE) {
                 lasers[i].active = 0;
                 if (laserHitBrick(r, col_l)) return;
             }
             // Check right beam
-            if (lasers[i].active && col_r != 0xFF && bricks[r][col_r] != BSTATE_EMPTY && bricks[r][col_r] != BSTATE_NEEDS_ERASE) {
+            if (lasers[i].active && col_r != 0xFF && player.bricks[r][col_r] != BSTATE_EMPTY && player.bricks[r][col_r] != BSTATE_NEEDS_ERASE) {
                 lasers[i].active = 0;
                 if (laserHitBrick(r, col_r)) return;
             }
@@ -1128,65 +1141,6 @@ void drawCustomTextLargeCentered(const u8* text, u8 y_lines, u8 color) {
     drawCustomTextLarge(text, getCenteredX(text, 3), y_lines, color);
 }
 
-#ifdef MOVE_TITLE_SPRITE
-
-// Off-screen buffer for the Extra Large splash title (78 bytes wide * 17 pixels high = 1326 bytes)
-u8 title_sprite[17 * 78];
-
-// Render a string using our custom arcade sprite font scaled 2x into the title_sprite memory buffer
-// Uses logical OR to allow compositing multiple layers (like drop shadows)
-void renderTitleSprite(const u8* text, u8 color, u8 x_off_bytes, u8 y_off_lines) {
-    const u8* ptr = text;
-    u8 x_bytes = 0;
-    u8 mask = cpct_px2byteM0(color, color);
-    u8 sprite_index, row, col, sub_y;
-    const u8* spr_data;
-
-    while(*ptr != '\0') {
-        sprite_index = getSpriteIndex(&ptr);
-        spr_data = font_large_sprites[sprite_index];
-        
-        // Manual 2x scaling draw (8 rows * 3 bytes) -> (16 rows * 6 bytes)
-        for(row = 0; row < 8; row++) {
-            // Draw each row twice to scale vertically
-            for(sub_y = 0; sub_y < 2; sub_y++) {
-                // Calculate the flat index into the 78-byte-wide sprite array
-                u16 y_idx = row * 2 + sub_y + y_off_lines;
-                u16 buffer_offset;
-                
-                if (y_idx >= 17) continue; // Out of bounds safety
-                
-                buffer_offset = y_idx * 78 + x_bytes + x_off_bytes;
-                for(col = 0; col < 3; col++) {
-                    u8 val = spr_data[row * 3 + col];
-                    u8 p0_dup = ((val & 0xAA) | ((val & 0xAA) >> 1)) & mask;
-                    u8 p1_dup = (((val & 0x55) << 1) | (val & 0x55)) & mask;
-                    
-                    if (buffer_offset < 17 * 78) title_sprite[buffer_offset++] |= p0_dup;
-                    if (buffer_offset < 17 * 78) title_sprite[buffer_offset++] |= p1_dup;
-                }
-            }
-        }
-        
-        ptr++;
-        x_bytes += 6; // scaled from 3 to 6 bytes wide
-    }
-}
-
-// Draw the cached Extra Large title to the screen using fast memory copy
-void drawTitleSprite(u8 x_bytes, u8 y_lines) {
-    u8 row;
-    u8* screen_pt;
-    for(row = 0; row < 17; row++) {
-        // Out of bounds safety
-        if (y_lines + row >= 200) continue;
-        screen_pt = cpct_getScreenPtr((void*)0xC000, x_bytes, y_lines + row);
-        cpct_memcpy(screen_pt, &title_sprite[row * 78], 78);
-    }
-}
-
-#else // !MOVE_TITLE_SPRITE
-
 // Draw a string using our custom arcade sprite font scaled 2x directly to screen
 // Each glyph: 8 rows * 3 bytes -> 16 lines * 6 bytes (2x horizontal + 2x vertical)
 void drawCustomTextXLarge(const u8* text, u8 x_bytes, u8 y_lines, u8 color) {
@@ -1228,56 +1182,54 @@ void drawCustomTextXLargeCentered(const u8* text, u8 y_lines, u8 color) {
     drawCustomTextXLarge(text, getCenteredX(text, 6), y_lines, color);
 }
 
-#endif // MOVE_TITLE_SPRITE
-
-// Randomly assign power-ups to normal bricks at level start
+// Randomly assign power-ups to normal player.bricks at level start
 void assignPowerups() {
     u8 r, c, rnd, threshold;
     // Set threshold based on difficulty: 0=Easy(50%), 1=Normal(30%), 2=Hard(15%)
-    if (game_difficulty == 0) threshold = 128;      // 128/256 = 50%
-    else if (game_difficulty == 1) threshold = 77;  // 77/256 ~ 30%
+    if (sys.game_difficulty == 0) threshold = 128;      // 128/256 = 50%
+    else if (sys.game_difficulty == 1) threshold = 77;  // 77/256 ~ 30%
     else threshold = 38;                           // 38/256 ~ 15%
 
-    rng_seed ^= (u16)(current_level + 1) * 0x1234;
+    rng_seed ^= (u16)(player.current_level + 1) * 0x1234;
     if (rng_seed == 0) rng_seed = 0xACE1;
     for (r = 0; r < BRICK_ROWS; r++) {
         for (c = 0; c < BRICK_COLS; c++) {
-            if (BRICK_TYPE(brick_map[r][c]) == BTYPE_NORMAL) {
+            if (BRICK_TYPE(player.brick_map[r][c]) == BTYPE_NORMAL) {
                 rnd = rand8();
                 if (rnd < threshold) {
                     // Pick a random power-up type: 1 to NUM_POWERUP_SPRITES
                     // 0 is BPOWER_NONE
                     u8 pwr = 1 + (rand8() % NUM_POWERUP_SPRITES);
-                    brick_map[r][c] = BRICK(BTYPE_NORMAL, BRICK_COLOR(brick_map[r][c]), pwr);
+                    player.brick_map[r][c] = BRICK(BTYPE_NORMAL, BRICK_COLOR(player.brick_map[r][c]), pwr);
                 } else {
                     // Ensure NO powerup if threshold not met (overwrites any level-defined powerup)
-                    brick_map[r][c] = BRICK(BTYPE_NORMAL, BRICK_COLOR(brick_map[r][c]), BPOWER_NONE);
+                    player.brick_map[r][c] = BRICK(BTYPE_NORMAL, BRICK_COLOR(player.brick_map[r][c]), BPOWER_NONE);
                 }
             }
         }
     }
 }
 
-// Loads the current level into brick_map[] and bricks[] runtime state
+// Loads the current level into player.brick_map[] and player.bricks[] runtime state
 void loadLevel() {
     u8 r, c, t, b;
-    active_bricks = 0;
+    player.active_bricks = 0;
     for (r = 0; r < BRICK_ROWS; r++) {
         for (c = 0; c < BRICK_COLS; c++) {
-            b = level_data[current_level % NUM_LEVELS][r][c];
-            brick_map[r][c] = b;
+            b = level_data[player.current_level % NUM_LEVELS][r][c];
+            player.brick_map[r][c] = b;
             t = BRICK_TYPE(b);
-            if (t == BTYPE_NORMAL) bricks[r][c] = BSTATE_NORMAL;
-            else if (t == BTYPE_HARD) bricks[r][c] = BSTATE_HARD;
-            else if (t == BTYPE_GOLD) bricks[r][c] = BSTATE_GOLD;
-            else bricks[r][c] = BSTATE_EMPTY;
+            if (t == BTYPE_NORMAL) player.bricks[r][c] = BSTATE_NORMAL;
+            else if (t == BTYPE_HARD) player.bricks[r][c] = BSTATE_HARD;
+            else if (t == BTYPE_GOLD) player.bricks[r][c] = BSTATE_GOLD;
+            else player.bricks[r][c] = BSTATE_EMPTY;
 
-            if (bricks[r][c] == BSTATE_NORMAL || bricks[r][c] == BSTATE_HARD) {
-                active_bricks++;
+            if (player.bricks[r][c] == BSTATE_NORMAL || player.bricks[r][c] == BSTATE_HARD) {
+                player.active_bricks++;
             }
         }
     }
-    enemy_spawn_threshold = ((u16)active_bricks * 40) / 100;
+    player.enemy_spawn_threshold = ((u16)player.active_bricks * 40) / 100;
 
     // We are now using bg_patterns from sprites.h for backgrounds.
     // They are natively drawn using drawBackgroundRect.
@@ -1285,53 +1237,43 @@ void loadLevel() {
     drop.active = 0;       // Clear any pending drop
     drop_erase_pending = 0; // Don't erase old position on new screen
     erase_count = 0;        // Clear any pending erases from previous level
-    door_open = 0;          // Ensure door starts closed
+    door.open = 0;          // Ensure door starts closed
     resetPowerups();
-    assignPowerups(); // Randomly tag some normal bricks with powerups
+    assignPowerups(); // Randomly tag some normal player.bricks with powerups
 }
 
 // --- 2-Player State Management ---
 
 void savePlayerState(u8 p) {
     if (p >= 2) return;
-    players[p].lives = lives;
-    players[p].score = score;
-    players[p].current_level = current_level;
-    players[p].active_bricks = active_bricks;
-    cpct_memcpy(players[p].score_str, score_str, 6);
-    cpct_memcpy(players[p].bricks, bricks, sizeof(bricks));
+    cpct_memcpy(&players[p], &player, sizeof(player_state_t));
 }
 
 void loadPlayerState(u8 p) {
     if (p >= 2) return;
-    lives = players[p].lives;
-    score = players[p].score;
-    current_level = players[p].current_level;
-    active_bricks = players[p].active_bricks;
-    cpct_memcpy(score_str, players[p].score_str, 6);
-    cpct_memcpy(bricks, players[p].bricks, sizeof(bricks));
+    cpct_memcpy(&player, &players[p], sizeof(player_state_t));
     
     // Refresh background and objects for the player's level
     initBackgroundCache();
     initPaddle();
     initBall();
     initEnemies();
-    if (current_level == NUM_LEVELS - 1) initBoss();
+    if (player.current_level == NUM_LEVELS - 1) initBoss();
 }
 
 void switchPlayer() {
-    if (num_players < 2) return;
+    if (sys.num_players < 2) return;
     
-    savePlayerState(current_player);
-    current_player = 1 - current_player;
-    loadPlayerState(current_player);
+    savePlayerState(sys.current_player);
+    sys.current_player = 1 - sys.current_player;
+    loadPlayerState(sys.current_player);
     
     // Check if new current player is already dead
-    if (lives == 0) {
+    if (player.lives == 0) {
         // Try to switch back if the other player is alive
-        current_player = 1 - current_player;
-        loadPlayerState(current_player);
-        if (lives == 0) {
+        sys.current_player = 1 - sys.current_player;
+        loadPlayerState(sys.current_player);
+        if (player.lives == 0) {
             // Both are dead - this should be handled by the game over check elsewhere
             return;
         }
@@ -1364,14 +1306,14 @@ void resetPowerups() {
     initBall();   // Ball starts attached to paddle
     initEnemies();
     
-    if (current_level == NUM_LEVELS - 1) {
+    if (player.current_level == NUM_LEVELS - 1) {
         initBoss();
-        door_open = 0; // Forced closed until boss dies
+        door.open = 0; // Forced closed until boss dies
     } else {
         boss.active = 0;
     }
 
-    launch_timer = 250; // 5 seconds at 50Hz before auto-launch
+    sys.launch_timer = 250; // 5 seconds at 50Hz before auto-launch
     paddle.width = PADDLE_WIDTH_BYTES; // Restore normal paddle width
     for (i = 0; i < MAX_LASER_PAIRS; i++) {
         lasers[i].active = 0;
@@ -1387,10 +1329,10 @@ void resetPowerups() {
 u16 getNormalBallSpeed() {
     u16 speed;
     u8 inc = 15;
-    if (game_difficulty == 0) inc = 8;
-    else if (game_difficulty == 2) inc = 20;
+    if (sys.game_difficulty == 0) inc = 8;
+    else if (sys.game_difficulty == 2) inc = 20;
 
-    speed = INITIAL_BALL_SPEED + (current_level / 2) * inc;
+    speed = INITIAL_BALL_SPEED + (player.current_level / 2) * inc;
     if (speed > INITIAL_BALL_SPEED + 150) speed = INITIAL_BALL_SPEED + 150;
     return speed;
 }
@@ -1428,31 +1370,31 @@ void initGame() {
     initial_dir_y = -55;
 
     // Reset scores and power-up states
-    hud_dirty = 1;
+    sys.hud_dirty = 1;
     flash_count = 0;
-    door_open = 0;
+    door.open = 0;
     resetPowerups();
 
     // 2-Player initial state allocation
-    if (num_players == 2) {
+    if (sys.num_players == 2) {
         u8 p;
         for (p = 0; p < 2; p++) {
             players[p].lives = 3;
             players[p].score = 0;
-            players[p].current_level = current_level; 
+            players[p].current_level = player.current_level; 
             cpct_memcpy(players[p].score_str, "00000", 6);
             
             // Generate initial brick layout for each player
-            current_player = p; 
+            sys.current_player = p; 
             loadLevel();
             savePlayerState(p);
         }
-        current_player = 0;
+        sys.current_player = 0;
         loadPlayerState(0);
     } else {
-        lives = 3;
-        score = 0;
-        cpct_memcpy(score_str, "00000", 6);
+        player.lives = 3;
+        player.score = 0;
+        cpct_memcpy(player.score_str, "00000", 6);
         loadLevel();
     }
 }
@@ -1463,27 +1405,32 @@ void initGame() {
 
 void drawHUD() {
     u8 temp_str[6];
-    u8 val = current_level + 1;
+    u8 val = player.current_level + 1;
     
-    // Refresh the score string exactly once per redraw (avoids repeated O(N) divisions)
-    uint16_to_str(score, score_str);
+    // Refresh the player.score string exactly once per redraw (avoids repeated O(N) divisions)
+    uint16_to_str(player.score, player.score_str);
     // Append a trailing '0' to make scores look 10x higher (Arcade style)
-    score_str[5] = '0';
-    score_str[6] = '\0';
+    player.score_str[5] = '0';
+    player.score_str[6] = '\0';
     
-    // Draw score (top-center of screen, inside the wall area)
+    // Draw player.score (top-center of screen, inside the wall area)
     // 6 chars * 3 bytes = 18 bytes. Center = (80-18)/2 = 31
-    drawCustomTextLarge((const u8*)score_str, 31, 0, PLT_BRIGHT_WHITE);
+    drawCustomTextLarge((const u8*)player.score_str, 31, 0, PLT_BRIGHT_WHITE);
 
-    // Draw DEMO indicator in yellow on the left
-    if (demo_mode) {
+    // Draw indicators on the left
+    // First, clear the area where indicators might be (bytes 2 to 14, scanlines 0-8)
+    cpct_drawSolidBox(cpct_getScreenPtr((void*)0xC000, 2, 0), 0, 13, 8); // 0 = Black, width=13, height=8
+
+    if (sys.demo_mode) {
         drawCustomText((const u8*)"DEMO", 8, 0, PLT_BRIGHT_YELLOW);
+    } else if (sys.use_paddle) {
+        drawCustomText((const u8*)"PADDLE", 2, 0, PLT_BRIGHT_YELLOW);
     }
 
     // Draw player indicator in 2-Player mode
-    if (num_players == 2) {
+    if (sys.num_players == 2) {
         temp_str[0] = 'P';
-        temp_str[1] = '1' + current_player;
+        temp_str[1] = '1' + sys.current_player;
         temp_str[2] = '\0';
         drawCustomTextLarge(temp_str, 12, 0, PLT_BRIGHT_YELLOW);
     }
@@ -1499,13 +1446,13 @@ void drawHUD() {
         drawCustomText(ptr, 64, 0, PLT_BRIGHT_WHITE);
     }
 
-    // Draw lives as mini-paddles in the bottom-left corner.
-    // Shows (lives - 1) to match classic Arkanoid convention (the paddle in play is not counted).
+    // Draw player.lives as mini-paddles in the bottom-left corner.
+    // Shows (player.lives - 1) to match classic Arkanoid convention (the paddle in play is not counted).
     {
         u8 l;
-        u8 display_lives = (lives > 1) ? (lives - 1) : 0;
+        u8 display_lives = (player.lives > 1) ? (player.lives - 1) : 0;
         u8 max_lives_to_draw = (display_lives < 4) ? display_lives : 4; // Cap at 4 to stay in bounds
-        // Erase the full possible area first (4 lives * 7 bytes = 28 bytes wide, plus buffer)
+        // Erase the full possible area first (4 player.lives * 7 bytes = 28 bytes wide, plus buffer)
         drawBackgroundRect(WALL_LEFT_BYTES + 1, 194, 30, 6);
         // Draw each life as a actual paddle sprite
         for (l = 0; l < max_lives_to_draw; l++) {
@@ -1514,27 +1461,27 @@ void drawHUD() {
     }
 
 
-    // Draw "PAUSE" overlay in the center when paused.
-    if (paused) {
+    // Draw "PAUSE" overlay in the center when sys.paused.
+    if (sys.paused) {
         drawCustomTextLargeCentered(GET_STR(STR_PAUSE), 96, PLT_BRIGHT_RED);
     }
 }
 
 void nextLevel() {
-    victory_walk = 0;
-    current_level++;
+    victory.walk = 0;
+    player.current_level++;
     
     // If we passed the last level (Boss Level 7), we won!
-    if (current_level >= NUM_LEVELS) {
+    if (player.current_level >= NUM_LEVELS) {
         // Restore palette just in case we were in victory walk
         u8 i;
         for (i = 0; i < 16; i++) {
             cpct_setPALColour(i, default_palette[i]);
         }
-        game_won = 1;
+        sys.game_won = 1;
         return;
     }
-    level_cleared = 1; // Mark level as cleared for this player
+    player.level_cleared = 1; // Mark level as cleared for this player
 
     // Re-initialize paddle positioning
     paddle.x = (SCREEN_WIDTH_BYTES - PADDLE_WIDTH_BYTES) / 2;
@@ -1571,46 +1518,65 @@ void nextLevel() {
 }
 
 void openDoor() {
-    door_open = 1;
-    door_anim_frame = 0;
-    door_anim_timer = 0;
+    door.open = 1;
+    door.anim_frame = 0;
+    door.anim_timer = 0;
     // Draw first frame immediately
     cpct_drawSprite(door_anim_sprites[0], cpct_getScreenPtr((void*)0xC000, WALL_RIGHT_BYTES, 172), 2, 16);
 }
 
 void closeDoor() {
-    if (!door_open) return;
-    door_open = 0;
+    if (!door.open) return;
+    door.open = 0;
     // Redraw the wall section over the hole (height 16 = two 8-pixel tiles)
     cpct_drawSprite(wall_v2_sprite, cpct_getScreenPtr((void*)0xC000, 78, 172), 2, 8);
     cpct_drawSprite(wall_v2_sprite, cpct_getScreenPtr((void*)0xC000, 78, 180), 2, 8);
 }
 
 void updateVictoryPalette() {
-    if (!victory_walk) return;
+    if (!victory.walk) return;
     
-    victory_palette_timer++;
-    if ((victory_palette_timer & 0x07) == 0) { // Every 8 frames
+    victory.palette_timer++;
+    if ((victory.palette_timer & 0x07) == 0) { // Every 8 frames
         u8 i;
-        victory_palette_offset = (victory_palette_offset + 1) & 0x0F;
+        victory.palette_offset = (victory.palette_offset + 1) & 0x0F;
         for (i = 0; i < 16; i++) {
-            cpct_setPALColour(i, default_palette[(i + victory_palette_offset) & 0x0F]);
+            cpct_setPALColour(i, default_palette[(i + victory.palette_offset) & 0x0F]);
         }
     }
 }
 
+// Reads the analog paddle, applying spike rejection to avoid jitter,
+// and updates the global tracked raw value.
+u8 readAnalogPaddle() {
+    u8 row6 = ~cpct_keyboardStatusBuffer[6]; // joystick 2
+    
+    // joystick bits 0-6: up, down, left, right, fire2(default), fire1, fire3
+    // Use only 7 bits because it is enough resolution for this game
+    u8 p_val = row6 & 0x7F;
+        
+    // Spike Rejection: If the change is too sudden (> 30 units), ignore it
+    u8 diff = (p_val > sys.paddle_last_raw) ? (p_val - sys.paddle_last_raw) : (sys.paddle_last_raw - p_val);
+    if (diff > 30) {
+        p_val = sys.paddle_last_raw;
+    }
+    sys.paddle_last_raw = p_val;
+    
+    return p_val;
+}
+
 // Called every frame to animate the exit energy field
 void updateDoorAnim() {
-    if (door_open) {
-        door_anim_timer++;
-        if (door_anim_timer >= DOOR_ANIM_SPEED) {
-            door_anim_timer = 0;
-            door_anim_frame++;
-            if (door_anim_frame >= NUM_DOOR_FRAMES) {
-                door_anim_frame = 0;
+    if (door.open) {
+        door.anim_timer++;
+        if (door.anim_timer >= DOOR_ANIM_SPEED) {
+            door.anim_timer = 0;
+            door.anim_frame++;
+            if (door.anim_frame >= NUM_DOOR_FRAMES) {
+                door.anim_frame = 0;
             }
             // Draw the next frame of the energy field over the hole
-            cpct_drawSprite(door_anim_sprites[door_anim_frame], 
+            cpct_drawSprite(door_anim_sprites[door.anim_frame], 
                             cpct_getScreenPtr((void*)0xC000, WALL_RIGHT_BYTES, 172), 
                             2, 16);
         }
@@ -1627,9 +1593,9 @@ void updatePaddle() {
         }
     }
 
-    if (powerups.autopilot_active || demo_mode) {
+    if (powerups.autopilot_active || sys.demo_mode) {
         u8 target_x;
-        if (door_open) {
+        if (door.open) {
             target_x = WALL_RIGHT_BYTES + 8; // Head towards door
         } else {
             // Center the paddle under the ball
@@ -1653,10 +1619,10 @@ void updatePaddle() {
  
         // Clamp to walls
         if (paddle.x < WALL_LEFT_BYTES) paddle.x = WALL_LEFT_BYTES;
-        if (!door_open && paddle.x + paddle.width > WALL_RIGHT_BYTES) paddle.x = WALL_RIGHT_BYTES - paddle.width;
+        if (!door.open && paddle.x + paddle.width > WALL_RIGHT_BYTES) paddle.x = WALL_RIGHT_BYTES - paddle.width;
         
         // Automated exit check
-        if (door_open && paddle.x >= WALL_RIGHT_BYTES) {
+        if (door.open && paddle.x >= WALL_RIGHT_BYTES) {
             nextLevel();
             return;
         }
@@ -1667,27 +1633,59 @@ void updatePaddle() {
             if (powerups.autopilot_timer == 0) powerups.autopilot_active = 0;
         }
     } else {
-        // Check redefinable keys or joystick
-        u8 left_p = cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Key_O) || cpct_isKeyPressed(Joy0_Left);
-        u8 right_p = cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Key_P) || cpct_isKeyPressed(Joy0_Right);
-        if (powerups.drunk_active) { u8 tmp = left_p; left_p = right_p; right_p = tmp; }
-
-        if (left_p) {
-            if (paddle.x >= WALL_LEFT_BYTES + speed) {
-                paddle.x -= speed;
-            } else {
-                paddle.x = WALL_LEFT_BYTES; 
-            }
-        }
+        u8 left_p, right_p;
         
-        if (right_p) {
-            if (!door_open && paddle.x + paddle.width + speed > WALL_RIGHT_BYTES) {
-                paddle.x = WALL_RIGHT_BYTES - paddle.width; 
-            } else {
-                paddle.x += speed;
-                if (door_open && paddle.x >= WALL_RIGHT_BYTES) {
-                    nextLevel();
-                    return;
+        if (sys.use_paddle) {
+            u16 range;
+            u8 max_pot;
+            
+            u8 p_val = readAnalogPaddle();
+            
+            // // 3. Apply smoothing filter (4-sample moving average)
+            // sys.paddle_history[sys.paddle_history_ptr] = p_val;
+            // sys.paddle_history_ptr = (sys.paddle_history_ptr + 1) & 3;
+            
+            // sum = 0;
+            // for (i = 0; i < 4; i++) {
+            //     sum += sys.paddle_history[i];
+            // }
+            // p_val = (u8)(sum >> 2);
+            
+            // 4. Map pot value to the playfield coordinate range
+            max_pot = 127;
+            range = WALL_RIGHT_BYTES - WALL_LEFT_BYTES - paddle.width;
+            paddle.x = WALL_LEFT_BYTES + ((u16)p_val * range) / max_pot;
+            
+            // 5. Handle level exit
+            if (door.open && paddle.x >= WALL_RIGHT_BYTES - paddle.width) {
+                 if (p_val >= max_pot - 5) {
+                     nextLevel();
+                     return;
+                 }
+            }
+        } else {
+            // Check redefinable keys or joystick
+            left_p = cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Joy0_Left);
+            right_p = cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Joy0_Right);
+            if (powerups.drunk_active) { u8 tmp = left_p; left_p = right_p; right_p = tmp; }
+
+            if (left_p) {
+                if (paddle.x >= WALL_LEFT_BYTES + speed) {
+                    paddle.x -= speed;
+                } else {
+                    paddle.x = WALL_LEFT_BYTES; 
+                }
+            }
+            
+            if (right_p) {
+                if (!door.open && paddle.x + paddle.width + speed > WALL_RIGHT_BYTES) {
+                    paddle.x = WALL_RIGHT_BYTES - paddle.width; 
+                } else {
+                    paddle.x += speed;
+                    if (door.open && paddle.x >= WALL_RIGHT_BYTES) {
+                        nextLevel();
+                        return;
+                    }
                 }
             }
         }
@@ -1781,8 +1779,8 @@ void moveBall(ball_t *b) {
                 b->speed_x = FP_VEL(b->dir_x, b->speed);
                 b->speed_y = FP_VEL(b->dir_y, b->speed);
                 
-                score += 50;
-                hud_dirty = 1;
+                player.score += 50;
+                sys.hud_dirty = 1;
                 cpct_akp_SFXPlay(13, 15, 36, 0, 0, AY_CHANNEL_ALL); // SFX: enemy killed by ball
             }
         }
@@ -1819,40 +1817,40 @@ u8 bouncePaddle(ball_t *b) {
 }
 
 // Apply the effect of a ball hitting a brick at (r, c).
-// Handles state change, score, drop spawn, erase queue, and SFX.
-// Returns 1 if all bricks are cleared (nextLevel already called), 0 otherwise.
+// Handles state change, player.score, drop spawn, erase queue, and SFX.
+// Returns 1 if all player.bricks are cleared (nextLevel already called), 0 otherwise.
 u8 hitBrick(u8 r, u8 c) {
-    if (bricks[r][c] == BSTATE_HARD) {
-        bricks[r][c] = BSTATE_NORMAL;
-        score += 2;
+    if (player.bricks[r][c] == BSTATE_HARD) {
+        player.bricks[r][c] = BSTATE_NORMAL;
+        player.score += 2;
         flashBrick(r, c);
         cpct_akp_SFXPlay(8, 15, 77, 0, 0, AY_CHANNEL_ALL); // F5
-    } else if (bricks[r][c] == BSTATE_GOLD) {
+    } else if (player.bricks[r][c] == BSTATE_GOLD) {
         // Gold brick: indestructible, just flash
         flashBrick(r, c);
         cpct_akp_SFXPlay(8, 15, 79, 0, 0, AY_CHANNEL_ALL); // G5
     } else {
         // Normal brick: destroy and possibly spawn a drop
-        if (BRICK_POWER(brick_map[r][c]) != 0 && !drop.active) {
+        if (BRICK_POWER(player.brick_map[r][c]) != 0 && !drop.active) {
             drop.x = brick_x[c] + (BRICK_WIDTH_BYTES / 2) - (DROP_WIDTH / 2);
             drop.y = brick_y[r] + BRICK_HEIGHT;
             drop.old_y = drop.y;
-            drop.power_type = BRICK_POWER(brick_map[r][c]);
+            drop.power_type = BRICK_POWER(player.brick_map[r][c]);
             drop.active = 1;
         }
-        bricks[r][c] = BSTATE_NEEDS_ERASE;
+        player.bricks[r][c] = BSTATE_NEEDS_ERASE;
         if (erase_count < MAX_ERASE) {
             erase_r[erase_count] = r;
             erase_c[erase_count] = c;
             erase_count++;
         }
-        score += 5;
-        active_bricks--;
+        player.score += 5;
+        player.active_bricks--;
         cpct_akp_SFXPlay(8, 15, 77, 0, 0, AY_CHANNEL_ALL); // F5
     }
-    hud_dirty = 1;
+    sys.hud_dirty = 1;
 
-    if (active_bricks == 0) {
+    if (player.active_bricks == 0) {
         nextLevel();
         return 1;
     }
@@ -1874,7 +1872,7 @@ u8 collideBricks(ball_t *b) {
 
     // Check top-left corner
     if (r != 0xFF && c != 0xFF) {
-        if (bricks[r][c] != BSTATE_EMPTY && bricks[r][c] != BSTATE_NEEDS_ERASE) {
+        if (player.bricks[r][c] != BSTATE_EMPTY && player.bricks[r][c] != BSTATE_NEEDS_ERASE) {
             goto hit;
         }
     }
@@ -1892,7 +1890,7 @@ u8 collideBricks(ball_t *b) {
     }
 
     if (r_down != 0xFF && c_right != 0xFF) {
-        if (bricks[r_down][c_right] != BSTATE_EMPTY && bricks[r_down][c_right] != BSTATE_NEEDS_ERASE) {
+        if (player.bricks[r_down][c_right] != BSTATE_EMPTY && player.bricks[r_down][c_right] != BSTATE_NEEDS_ERASE) {
             r = r_down; c = c_right;
             goto hit;
         }
@@ -1900,13 +1898,13 @@ u8 collideBricks(ball_t *b) {
 
     // Check top-right and bottom-left for thoroughness (if different)
     if (r != 0xFF && c_right != 0xFF && (r != r_down || c != c_right)) {
-         if (bricks[r][c_right] != BSTATE_EMPTY && bricks[r][c_right] != BSTATE_NEEDS_ERASE) {
+         if (player.bricks[r][c_right] != BSTATE_EMPTY && player.bricks[r][c_right] != BSTATE_NEEDS_ERASE) {
             c = c_right;
             goto hit;
         }
     }
     if (r_down != 0xFF && c != 0xFF && (r != r_down || c != c_right)) {
-         if (bricks[r_down][c] != BSTATE_EMPTY && bricks[r_down][c] != BSTATE_NEEDS_ERASE) {
+         if (player.bricks[r_down][c] != BSTATE_EMPTY && player.bricks[r_down][c] != BSTATE_NEEDS_ERASE) {
             r = r_down;
             goto hit;
         }
@@ -1922,10 +1920,10 @@ hit:
         u8 was_outside_y = (b->old_y + b->height <= by) || (b->old_y >= by + BRICK_HEIGHT);
 
         if (was_outside_x && !was_outside_y) { 
-            if (!powerups.fireball_active || bricks[r][c] == BSTATE_GOLD) b->dir_x = -b->dir_x; 
+            if (!powerups.fireball_active || player.bricks[r][c] == BSTATE_GOLD) b->dir_x = -b->dir_x; 
         }
         else { 
-            if (!powerups.fireball_active || bricks[r][c] == BSTATE_GOLD) b->dir_y = -b->dir_y; 
+            if (!powerups.fireball_active || player.bricks[r][c] == BSTATE_GOLD) b->dir_y = -b->dir_y; 
         }
         b->speed_x = FP_VEL(b->dir_x, b->speed);
         b->speed_y = FP_VEL(b->dir_y, b->speed);
@@ -1945,11 +1943,11 @@ void flashBrick(u8 r, u8 c) {
 
 void loseLife() {
     u8 j;
-    if (victory_walk) return;
+    if (victory.walk) return;
     // SFX: life lost 
     cpct_akp_SFXPlay(13, 24, 36, 0, 0, AY_CHANNEL_ALL);
         
-    lives--;
+    player.lives--;
 
     // Deactivate and IMMEDIATELY erase any falling capsule
     if (drop.active) {
@@ -1983,19 +1981,19 @@ void loseLife() {
     }
 
     drawHUD();
-    hud_dirty = 0;
+    sys.hud_dirty = 0;
 
-    if (num_players == 2 && lives == 0) {
-        // Current player is out of lives, check if the other one has any left
+    if (sys.num_players == 2 && player.lives == 0) {
+        // Current player is out of player.lives, check if the other one has any left
         switchPlayer();
-        if (lives > 0) {
-            showPlayerStart(current_player);
+        if (player.lives > 0) {
+            showPlayerStart(sys.current_player);
             return;
         }
         // Both dead? Fall through to standard game over handling
     }
 
-    if (lives > 0) {
+    if (player.lives > 0) {
         // Restore palette in case it was flickering (e.g. boss hit)
         for (j = 0; j < 16; j++) {
             cpct_setPALColour(j, default_palette[j]);
@@ -2003,9 +2001,9 @@ void loseLife() {
         
         resetPowerups(); // Reset for all cases when a life is lost
 
-        if (num_players == 2) {
+        if (sys.num_players == 2) {
              switchPlayer();
-             showPlayerStart(current_player);
+             showPlayerStart(sys.current_player);
         } else {
             closeDoor();
         }
@@ -2034,16 +2032,16 @@ void updateBallOnPaddle() {
     ball.fpos_y = (i16)ball.y * FP_SCALE;
 
     // Auto-launch countdown: fires the ball automatically after ~5 seconds
-    if (launch_timer > 0) launch_timer--;
+    if (sys.launch_timer > 0) sys.launch_timer--;
 
-    if (victory_walk) return;
+    if (victory.walk) return;
 
     if (powerups.glue_active) {
         // Glue mode: wait for glue_timer (set on paddle bounce), then auto-release
         if (powerups.glue_timer > 0) powerups.glue_timer--;
-        if (powerups.glue_timer == 0 || cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1) || (demo_mode && powerups.glue_timer < 100)) {
+        if (powerups.glue_timer == 0 || cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1) || (sys.demo_mode && powerups.glue_timer < 100)) {
             powerups.glue_timer = 0;
-            launch_timer = 250; // Reset for next ball
+            sys.launch_timer = 250; // Reset for next ball
             ball.active = 1;
             ball.dir_x = initial_dir_x;
             ball.dir_y = initial_dir_y;
@@ -2052,8 +2050,8 @@ void updateBallOnPaddle() {
     } else {
         // Normal mode: Fire OR auto-launch countdown reaching 0 OR demo auto-launch
         if (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1) || 
-            launch_timer == 0 || (demo_mode && launch_timer < 150)) {
-            launch_timer = 250; // Reset for next ball
+            sys.launch_timer == 0 || (sys.demo_mode && sys.launch_timer < 150)) {
+            sys.launch_timer = 250; // Reset for next ball
             ball.active = 1;
             ball.dir_x = initial_dir_x;
             ball.dir_y = initial_dir_y;
@@ -2066,7 +2064,7 @@ void updateBallOnPaddle() {
 // Returns 1 if the level was cleared (nextLevel was called), 0 otherwise.
 // Unified physics handler for any ball (main or extra).
 // Handles movement, bounces, collisions, and deactivation/life-loss logic.
-// Returns 1 if the level was cleared (bricks exhausted), 0 otherwise.
+// Returns 1 if the level was cleared (player.bricks exhausted), 0 otherwise.
 u8 handleBallPhysics(ball_t *b) {
     moveBall(b);
 
@@ -2206,9 +2204,9 @@ void drawDrop() {
         }
     }
 
-    // Repaint any bricks uncovered by the erased top strip.
+    // Repaint any player.bricks uncovered by the erased top strip.
     // Done AFTER drawing the sprite so the CRT sees the correct capsule
-    // position before we repaint the bricks below it.
+    // position before we repaint the player.bricks below it.
     if (drop.old_y != drop.y && drop.old_y < SCREEN_HEIGHT) {
         u8 r, c;
         u8 delta_y = drop.y - drop.old_y;
@@ -2219,7 +2217,7 @@ void drawDrop() {
                 for (c = 0; c < BRICK_COLS; c++) {
                     if (brick_x[c] + BRICK_WIDTH_BYTES <= drop.x) continue;
                     if (brick_x[c] >= drop.x + DROP_WIDTH) break;
-                    if (bricks[r][c] != BSTATE_EMPTY && bricks[r][c] != BSTATE_NEEDS_ERASE) {
+                    if (player.bricks[r][c] != BSTATE_EMPTY && player.bricks[r][c] != BSTATE_NEEDS_ERASE) {
                         u8 s_idx = getBrickSpriteIndex(r, c);
                         pVideoMemory = cpct_getScreenPtr((void*)0xC000, brick_x[c], brick_y[r]);
                         cpct_drawSprite(brick_sprites[s_idx], pVideoMemory, BRICK_WIDTH_BYTES, BRICK_HEIGHT);
@@ -2316,7 +2314,7 @@ void updateBoss() {
             boss.state = 0;
             
             // Victory Walk begins
-            victory_walk = 1;
+            victory.walk = 1;
             ball.active = 0;
             {
                 u8 i;
@@ -2356,12 +2354,12 @@ void checkBossCollision(ball_t* b) {
             boss.timer = 0;
             boss.hit_timer = 0; // Stop flashing
             cpct_setPALColour(1, default_palette[1]); // Ensure restored
-            score += 1000;
-            hud_dirty = 1;
+            player.score += 1000;
+            sys.hud_dirty = 1;
         } else {
-            score += 10;
+            player.score += 10;
             boss.hit_timer = 10; // 0.2s flash
-            hud_dirty = 1;
+            sys.hud_dirty = 1;
             cpct_akp_SFXPlay(2, 15, 50, 0, 0, AY_CHANNEL_ALL); // Hit boss
         }
     }
@@ -2410,10 +2408,9 @@ void drawExtraBalls() {
             // 2. Draw and sync if still active
             if (b->active) {
                 if (b->y <= SCREEN_HEIGHT - b->height && b->x < 80 && b->y >= WALL_TOP) {
-                    if (1) { // Always draw Fireball (no blinking)
-                        pMem = cpct_getScreenPtr((void*)0xC000, b->x, b->y);
-                        cpct_drawSprite(powerups.fireball_active ? fireball_sprite : ball_sprite, pMem, b->width, b->height);
-                    }
+                    // Always draw Fireball (no blinking)
+                    pMem = cpct_getScreenPtr((void*)0xC000, b->x, b->y);
+                    cpct_drawSprite(powerups.fireball_active ? fireball_sprite : ball_sprite, pMem, b->width, b->height);
                 }
                 b->old_x = b->x;
                 b->old_y = b->y;
@@ -2433,8 +2430,8 @@ void drawFlashBricks() {
     // Draw flash overlay
     for (f = 0; f < flash_count; f++) {
         u8 r = flash_r[f]; u8 c = flash_c[f];
-        if (bricks[r][c] != BSTATE_EMPTY && bricks[r][c] != BSTATE_NEEDS_ERASE) {
-            u8 fcol = (bricks[r][c] == BSTATE_GOLD) ? COLOR_LASER : COLOR_BALL;
+        if (player.bricks[r][c] != BSTATE_EMPTY && player.bricks[r][c] != BSTATE_NEEDS_ERASE) {
+            u8 fcol = (player.bricks[r][c] == BSTATE_GOLD) ? COLOR_LASER : COLOR_BALL;
             pMem = cpct_getScreenPtr((void*)0xC000, brick_x[c], brick_y[r]);
             cpct_drawSolidBox(pMem, cpct_px2byteM0(fcol, fcol), BRICK_WIDTH_BYTES, BRICK_HEIGHT);
         }
@@ -2445,7 +2442,7 @@ void drawFlashBricks() {
         flash_timer[f]--;
         if (flash_timer[f] == 0) {
             u8 r = flash_r[f]; u8 c = flash_c[f];
-            if (bricks[r][c] != BSTATE_EMPTY && bricks[r][c] != BSTATE_NEEDS_ERASE) {
+            if (player.bricks[r][c] != BSTATE_EMPTY && player.bricks[r][c] != BSTATE_NEEDS_ERASE) {
                 u8 s_idx = getBrickSpriteIndex(r, c);
 
                 pMem = cpct_getScreenPtr((void*)0xC000, brick_x[c], brick_y[r]);
@@ -2464,7 +2461,7 @@ void drawFlashBricks() {
 void drawGame() {
     cpct_waitVSYNC();
     
-    if (victory_walk) {
+    if (victory.walk) {
         updateVictoryPalette();
         // Persistent victory message
         drawCustomTextCentered(GET_STR(STR_GO_TO_THE_DOOR), 96, PLT_BRIGHT_RED);
@@ -2513,10 +2510,8 @@ void drawGame() {
 
     // Draw ball.
     if (ball.y <= SCREEN_HEIGHT - ball.height && ball.x < 80 && ball.y >= WALL_TOP) {
-        if (1) {
-            u8* pMem = cpct_getScreenPtr((void*)0xC000, ball.x, ball.y);
-            cpct_drawSprite(powerups.fireball_active ? fireball_sprite : ball_sprite, pMem, ball.width, ball.height);
-        }
+        u8* pMem = cpct_getScreenPtr((void*)0xC000, ball.x, ball.y);
+        cpct_drawSprite(powerups.fireball_active ? fireball_sprite : ball_sprite, pMem, ball.width, ball.height);
     }
     
     // Sync old coordinates to match what's on screen after drawing.
@@ -2524,10 +2519,10 @@ void drawGame() {
     ball.old_y = ball.y;
 
 
-    // Erase destroyed bricks (direct index lookup, no full 64-cell scan per frame).
+    // Erase destroyed player.bricks (direct index lookup, no full 64-cell scan per frame).
     for (u8 e = 0; e < erase_count; e++) {
         drawBackgroundRect(brick_x[erase_c[e]], brick_y[erase_r[e]], BRICK_WIDTH_BYTES, BRICK_HEIGHT);
-        bricks[erase_r[e]][erase_c[e]] = BSTATE_EMPTY;
+        player.bricks[erase_r[e]][erase_c[e]] = BSTATE_EMPTY;
     }
     erase_count = 0;
 
@@ -2536,8 +2531,8 @@ void drawGame() {
     drawEnemies();
     if (boss.active || boss.state == 2) drawBoss();
     
-    // --- Gameplay Logic ---only if something changed (score, lives, level, or active power-up).
-    if (hud_dirty) { drawHUD(); hud_dirty = 0; }
+    // --- Gameplay Logic ---only if something changed (player.score, player.lives, level, or active power-up).
+    if (sys.hud_dirty) { drawHUD(); sys.hud_dirty = 0; }
 
     drawFlashBricks();
 
@@ -2576,10 +2571,10 @@ void drawBackground() {
         cpct_drawSprite(wall_v2_sprite, cpct_getScreenPtr((void*)0xC000, 78, (u8)wy), 2, 8);
     }
 
-    // Initial draw of all bricks
+    // Initial draw of all player.bricks
     for (u8 r = 0; r < BRICK_ROWS; r++) {
         for (u8 c = 0; c < BRICK_COLS; c++) {
-            if (bricks[r][c] != BSTATE_EMPTY && bricks[r][c] != BSTATE_NEEDS_ERASE) {
+            if (player.bricks[r][c] != BSTATE_EMPTY && player.bricks[r][c] != BSTATE_NEEDS_ERASE) {
                 u8 bx = BRICK_START_X + c * (BRICK_WIDTH_BYTES + BRICK_GAP_X);
                 u8 by = BRICK_START_Y + r * (BRICK_HEIGHT + BRICK_GAP_Y);
                 u8 s_idx = getBrickSpriteIndex(r, c);
@@ -2689,12 +2684,12 @@ u8 showVictory() {
     drawCustomTextLargeCentered(GET_STR(STR_CONGRATS), 40, PLT_ORANGE); 
 
     // Draw funny comic messages in White (Small)
-    for (i = 0; i < 5; i++) {
+    for (i = 0; i < 6; i++) {
         drawCustomTextCentered(GET_STR(msg_ids[i]), 70 + i * 18, PLT_BRIGHT_WHITE);
     }
     
     // Silence audio
-    if (music_on) cpct_akp_stop();
+    if (sys.music_on) cpct_akp_stop();
 
     return updateMenuLoop(1);
 }
@@ -2711,7 +2706,7 @@ u8 showGameOver() {
     drawCustomTextCentered(GET_STR(STR_GAME_OVER_SUB2), 105, PLT_BRIGHT_WHITE);
     
     // Silence audio because the draw loop is stopped
-    if (music_on) cpct_akp_stop();
+    if (sys.music_on) cpct_akp_stop();
 
     return updateMenuLoop(1);
 }
@@ -2757,7 +2752,7 @@ u8 checkEnemyBrickCollision(u8 x, u8 y) {
             if (x + ENEMY_WIDTH <= bx) break; 
             if (x >= bx + BRICK_WIDTH_BYTES) continue;
             
-            if (bricks[r][c] != BSTATE_EMPTY && bricks[r][c] != BSTATE_NEEDS_ERASE) {
+            if (player.bricks[r][c] != BSTATE_EMPTY && player.bricks[r][c] != BSTATE_NEEDS_ERASE) {
                 return 1;
             }
         }
@@ -2771,16 +2766,16 @@ void initEnemies() {
         enemies[i].active = 0;
         enemies[i].old_x = 0xFF; // dummy to mark clean
     }
-    enemy_spawn_timer = 200;
+    player.enemy_spawn_timer = 200;
 }
 
 void updateEnemies() {
     u8 i;
     
     // Spawn logic: Regular levels only. Boss handles its own spawning.
-    if (!boss.active && active_bricks <= enemy_spawn_threshold && active_bricks > 0 && !door_open) {
-        if (enemy_spawn_timer > 0) {
-            enemy_spawn_timer--;
+    if (!boss.active && player.active_bricks <= player.enemy_spawn_threshold && player.active_bricks > 0 && !door.open) {
+        if (player.enemy_spawn_timer > 0) {
+            player.enemy_spawn_timer--;
         } else {
             for (i = 0; i < MAX_ENEMIES; i++) {
                 if (!enemies[i].active) {
@@ -2793,7 +2788,7 @@ void updateEnemies() {
                     enemies[i].type = rand8() % NUM_ENEMY_SPRITES;
                     enemies[i].speed_x = (rand8() & 1) ? 1 : -1;
                     enemies[i].frame = 0;
-                    enemy_spawn_timer = 250 + (rand8() & 127);
+                    player.enemy_spawn_timer = 250 + (rand8() & 127);
                     break;
                 }
             }
@@ -2851,8 +2846,8 @@ void updateEnemies() {
         // Collide with paddle
         if (enemies[i].y + ENEMY_HEIGHT >= paddle.y && enemies[i].y <= paddle.y + paddle.height) {
             if (enemies[i].x + ENEMY_WIDTH >= paddle.x && enemies[i].x <= paddle.x + paddle.width) {
-                score += 50;
-                hud_dirty = 1;
+                player.score += 50;
+                sys.hud_dirty = 1;
                 enemies[i].active = 0;
                 cpct_akp_SFXPlay(13, 15, 36, 0, 0, AY_CHANNEL_ALL); // SFX: enemy killed by paddle
             }
@@ -2909,7 +2904,7 @@ void music_isr(void) {
     tick++;
     if (tick == 6) {
         tick = 0;
-        if (music_on && !paused) {
+        if (sys.music_on && !sys.paused) {
             cpct_akp_musicPlay();
         }
     }
@@ -2947,7 +2942,7 @@ void drawDifficultyLine() {
     // drawBackgroundRect(26, 125, 54, 8); // Wall areas start at byte 2, playfield at WALL_LEFT_BYTES
     // Actually, just overwriting is usually fine if colors are same.
     drawCustomText(GET_STR(STR_DIFFICULTY), 30, 116, PLT_BRIGHT_WHITE);
-    diff_str[0] = '1' + game_difficulty;
+    diff_str[0] = '1' + sys.game_difficulty;
     diff_str[1] = '\0';
     drawCustomText(diff_str, 58, 116, PLT_BRIGHT_YELLOW);
 }
@@ -2971,7 +2966,7 @@ void drawIntroContent() {
     drawCustomText(GET_STR(STR_DIFFICULTY), 30, 116, PLT_BRIGHT_WHITE);
     {
         u8 diff_str[2];
-        diff_str[0] = '1' + game_difficulty;
+        diff_str[0] = '1' + sys.game_difficulty;
         diff_str[1] = '\0';
         drawCustomText(diff_str, 58, 116, PLT_BRIGHT_YELLOW);
     }
@@ -2979,9 +2974,9 @@ void drawIntroContent() {
     drawCustomText(GET_STR(STR_PRESS_H_HELP), 30, 129, PLT_BRIGHT_WHITE);
 
     // Draw credits
-    drawCustomTextCentered(GET_STR(STR_CREDITS_CODE), 161, PLT_BRIGHT_YELLOW);
-    drawCustomTextCentered(GET_STR(STR_CREDITS_MUSIC), 172, PLT_BRIGHT_YELLOW);
-    drawCustomTextCentered(GET_STR(STR_CREDITS_POWERED), 183, PLT_BRIGHT_YELLOW);
+    drawCustomTextCentered(GET_STR(STR_CREDITS_CODE), 167, PLT_BRIGHT_YELLOW);
+    drawCustomTextCentered(GET_STR(STR_CREDITS_MUSIC), 176, PLT_BRIGHT_YELLOW);
+    drawCustomTextCentered(GET_STR(STR_CREDITS_POWERED), 185, PLT_BRIGHT_YELLOW);
     drawCustomTextCentered((const u8*)"2026", 194, PLT_BRIGHT_YELLOW);
 }
 
@@ -2991,6 +2986,7 @@ void showIntro() {
     u8 selection = 1; // Default to 1 Player
     u8 key_held = 0;
     u8 selection_y[] = {77, 90, 103, 116, 129};
+    u8 paddle_prev = ~cpct_keyboardStatusBuffer[6] & 0x7F; // Initial paddle position
     u8 pal[16];
     
     // Copy the default hardware palette
@@ -3021,27 +3017,58 @@ void showIntro() {
 
         cpct_scanKeyboard_f();
 
-        // 2. Navigation (Left/Right)
-        if (cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Joy0_Left)) {
-            if (!key_held) {
-                drawBackgroundRect(21, selection_y[selection], 6, 6);
-                if (selection > 0) selection--; else selection = 4;
-                key_held = 1;
+        // 2. Navigation (Left/Right) — keyboard/joystick or analog paddle
+        {
+            u8 nav_left = 0, nav_right = 0;
+
+            {
+                // Always read paddle to auto-detect its usage
+                u8 p_val = readAnalogPaddle();
+                
+                // Navigation threshold to avoid micro-movements
+                if (p_val > (u8)(paddle_prev + 8)) { 
+                    nav_right = 1; 
+                    paddle_prev = p_val; 
+                    sys.use_paddle = 1; 
+                    sys.hud_dirty = 1; 
+                }
+                else if (p_val + 8 < paddle_prev) { 
+                    nav_left  = 1; 
+                    paddle_prev = p_val; 
+                    sys.use_paddle = 1; 
+                    sys.hud_dirty = 1; 
+                }
             }
-        } else if (cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Joy0_Right)) {
-            if (!key_held) {
-                drawBackgroundRect(21, selection_y[selection], 6, 6);
-                if (selection < 4) selection++; else selection = 0;
-                key_held = 1;
+
+            nav_left  |= (cpct_isKeyPressed(Key_CursorLeft)  || cpct_isKeyPressed(Joy0_Left));
+            nav_right |= (cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Joy0_Right));
+
+            if (nav_left) {
+                if (!key_held) {
+                    drawBackgroundRect(21, selection_y[selection], 6, 6);
+                    if (selection > 0) selection--; else selection = 4;
+                    key_held = 1;
+                }
+            } else if (nav_right) {
+                if (!key_held) {
+                    drawBackgroundRect(21, selection_y[selection], 6, 6);
+                    if (selection < 4) selection++; else selection = 0;
+                    key_held = 1;
+                }
+            } else if (!sys.use_paddle) {
+                // Only clear key_held via keyboard when not using paddle
+                // (paddle clears it below when there's no movement)
             }
-        } else if (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) {
+        }
+
+        if (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) {
             if (!key_held) {
-                if (selection == 0) { num_players = 1; demo_mode = 1; break; }
-                if (selection == 1) { num_players = 1; demo_mode = 0; break; }
-                if (selection == 2) { num_players = 2; demo_mode = 0; break; }
+                if (selection == 0) { sys.num_players = 1; sys.demo_mode = 1; break; }
+                if (selection == 1) { sys.num_players = 1; sys.demo_mode = 0; break; }
+                if (selection == 2) { sys.num_players = 2; sys.demo_mode = 0; break; }
                 if (selection == 3) {
-                    game_difficulty++;
-                    if (game_difficulty > 2) game_difficulty = 0;
+                    sys.game_difficulty++;
+                    if (sys.game_difficulty > 2) sys.game_difficulty = 0;
                     drawDifficultyLine();
                     key_held = 1;
                 }
@@ -3053,8 +3080,23 @@ void showIntro() {
                     key_held = 1;
                 }
             }
+        } else if (cpct_isKeyPressed(Key_M)) {
+            if (!key_held) {
+                sys.music_on ^= 1;
+                if (!sys.music_on) {
+                    cpct_akp_stop();
+                } else {
+                    cpct_akp_musicInit(music_song);
+                }
+                key_held = 1;
+            }
         } else {
-            key_held = 0;
+            if (!(cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Joy0_Left) ||
+                  cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Joy0_Right) ||
+                  cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1) ||
+                  cpct_isKeyPressed(Key_M))) {
+                key_held = 0;
+            }
         }
     }
 
@@ -3074,16 +3116,17 @@ u8 showControls() {
         {STR_KEY_RIGHT, STR_MOVE_RIGHT},
         {STR_KEY_SPACE, STR_FIRE},
         {STR_KEY_ESC,   STR_PAUSE},
-        {STR_KEY_M,     STR_MUSIC}
+        {STR_KEY_M,     STR_MUSIC},
+        {STR_KEY_P,     STR_PADDLE}
     };
     
     cpct_memset((void*)0xC000, 0x00, 0x4000);
     initStarfield();
     drawCustomTextLargeCentered(GET_STR(STR_CONTROLS), 15, PLT_ORANGE);
 
-    for (i = 0; i < 5; i++) {
-        drawCustomText(GET_STR(ids[i][0]), 18, 60 + i * 16, PLT_BRIGHT_WHITE);
-        drawCustomText(GET_STR(ids[i][1]), 45, 60 + i * 16, PLT_BRIGHT_YELLOW);
+    for (i = 0; i < 6; i++) {
+        drawCustomText(GET_STR(ids[i][0]), 18-10, 60 + i * 16, PLT_BRIGHT_WHITE);
+        drawCustomText(GET_STR(ids[i][1]), 45-10, 60 + i * 16, PLT_BRIGHT_YELLOW);
     }
 
     if (updateMenuLoop(1)) return 1;
@@ -3153,6 +3196,7 @@ u8 showLevelSelect() {
     u8 selection = 0;
     u8 joyLR_pressed = 0; // to prevent fast auto-repeat
     u8 str_buf[10];
+    u8 paddle_prev = ~cpct_keyboardStatusBuffer[6] & 0x7F; // Initial paddle position
     u8 dirty = 1;
 
     // Fill screen with background color
@@ -3187,28 +3231,53 @@ u8 showLevelSelect() {
         
         if (cpct_isKeyPressed(Key_Esc)) return 1;
 
-        if (cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Joy0_Left)) {
-            if (!joyLR_pressed) {
-                if (selection > 0) selection--;
-                else selection = NUM_LEVELS - 1;
-                joyLR_pressed = 1;
-                dirty = 1;
+        // Navigation with keyboard/joystick or analog paddle
+        {
+            u8 nav_left = 0, nav_right = 0;
+
+            {
+                // Always read paddle to auto-detect its usage
+                u8 p_val = readAnalogPaddle();
+                
+                // Navigation threshold to avoid micro-movements
+                if (p_val > (u8)(paddle_prev + 8)) { 
+                    nav_right = 1; 
+                    paddle_prev = p_val; 
+                    sys.use_paddle = 1; 
+                    sys.hud_dirty = 1;
+                }
+                else if (p_val + 8 < paddle_prev) { 
+                    nav_left  = 1; 
+                    paddle_prev = p_val; 
+                    sys.use_paddle = 1; 
+                    sys.hud_dirty = 1;
+                }
             }
-        } 
-        else if (cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Joy0_Right)) {
-            if (!joyLR_pressed) {
-                if (selection < NUM_LEVELS - 1) selection++;
-                else selection = 0;
-                joyLR_pressed = 1;
-                dirty = 1;
+
+            nav_left  |= (cpct_isKeyPressed(Key_CursorLeft)  || cpct_isKeyPressed(Joy0_Left));
+            nav_right |= (cpct_isKeyPressed(Key_CursorRight) || cpct_isKeyPressed(Joy0_Right));
+
+            if (nav_left) {
+                if (!joyLR_pressed) {
+                    if (selection > 0) selection--;
+                    else selection = NUM_LEVELS - 1;
+                    joyLR_pressed = 1;
+                    dirty = 1;
+                }
+            } else if (nav_right) {
+                if (!joyLR_pressed) {
+                    if (selection < NUM_LEVELS - 1) selection++;
+                    else selection = 0;
+                    joyLR_pressed = 1;
+                    dirty = 1;
+                }
+            } else {
+                joyLR_pressed = 0;
             }
-        } 
-        else {
-            joyLR_pressed = 0;
         }
 
         if (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) {
-            current_level = selection;
+            player.current_level = selection;
             
             // Wait for release
             while (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Joy0_Fire1)) {
@@ -3226,31 +3295,55 @@ u8 showLevelSelect() {
 void handleGameToggles() {
     u8 esc_now = cpct_isKeyPressed(Key_Esc);
     u8 m_now   = cpct_isKeyPressed(Key_M);
+    u8 p_now;
 
     // ESC: toggle pause (edge detection)
-    if (esc_now && !key_esc_held) {
-        paused ^= 1;
-        hud_dirty = 1; // Force HUD to redraw/clear "PAUSE" text
-        if (paused) {
+    if (esc_now && !sys.esc_held) {
+        sys.paused ^= 1;
+        sys.hud_dirty = 1; // Force HUD to redraw/clear "PAUSE" text
+        if (sys.paused) {
             cpct_akp_stop();
         } else {
             // Erase the PAUSE text area: Large font is 15 bytes wide (5 chars x 3 bytes), 8 lines
             // Range [30, 50) safely covers the centered [32, 47) area
             drawBackgroundRect(30, 96, 20, 8);
+            
+            // Redraw any player.bricks that were under the PAUSE text
+            // Row 8 (Y=92-98) and Row 9 (Y=100-106) intersect Y=96-104
+            // Col 3-6 intersect X=30-50 bytes
+            for (u8 r = 8; r < BRICK_ROWS; r++) {
+               for (u8 c = 3; c <= 6; c++) {
+                  if (player.bricks[r][c] != BSTATE_EMPTY && player.bricks[r][c] != BSTATE_NEEDS_ERASE) {
+                     u8 bx = BRICK_START_X + c * BRICK_WIDTH_BYTES;
+                     u8 by = BRICK_START_Y + r * (BRICK_HEIGHT + BRICK_GAP_Y);
+                     u8 s_idx = getBrickSpriteIndex(r, c);
+                     cpct_drawSprite(brick_sprites[s_idx], cpct_getScreenPtr((void*)0xC000, bx, by), BRICK_WIDTH_BYTES, BRICK_HEIGHT);
+                  }
+               }
+            }
         }
     }
-    key_esc_held = esc_now;
+    sys.esc_held = esc_now;
 
     // M: toggle music+sfx (edge detection)
-    if (m_now && !key_m_held) {
-        music_on ^= 1;
-        if (!music_on) {
+    if (m_now && !sys.m_held) {
+        sys.music_on ^= 1;
+        if (!sys.music_on) {
             cpct_akp_stop();
         } else {
             cpct_akp_musicInit(music_song);
         }
     }
-    key_m_held = m_now;
+    // P: toggle analog paddle (edge detection)
+    p_now = cpct_isKeyPressed(Key_P);
+    if (p_now && !sys.p_held) {
+        sys.use_paddle ^= 1;
+        sys.hud_dirty = 1;  // Force HUD redraw to show/hide the PADDLE indicator
+        // SFX: toggle sound (instrument 8)
+        cpct_akp_SFXPlay(8, 15, 60, 0, 0, AY_CHANNEL_ALL);
+    }
+    sys.p_held = p_now;
+    sys.m_held = m_now;
 }
 
 void main(void) {
@@ -3265,7 +3358,7 @@ void main(void) {
     // Disable firmware to take full control
     cpct_disableFirmware();
 
-    // Initialize RNG used by stars, bricks, and ball bounces
+    // Initialize RNG used by stars, player.bricks, and ball bounces
     rng_seed = 0xACE1;
 
     // Set screen mode 0 (16 colors)
@@ -3282,8 +3375,13 @@ void main(void) {
     // If you add your own song in the future, change this name to your new array.
     cpct_akp_musicInit(music_song);
     cpct_akp_SFXInit(music_song);
-    music_on = 1;
-    key_m_held = 0;
+    sys.music_on = 1;
+    sys.m_held = 0;
+    sys.use_paddle = 0;
+    sys.p_held = 0;
+    // Initialize paddle_last_raw from a real read to avoid initial spike rejection
+    cpct_scanKeyboard_f();
+    sys.paddle_last_raw = ~cpct_keyboardStatusBuffer[6] & 0x7F;
 
     // Register the custom ISR so the music plays automatically in the background
     cpct_setInterruptHandler(music_isr);
@@ -3299,32 +3397,32 @@ void main(void) {
         // Then jump into the Level Selection menu
         if (showLevelSelect()) continue;
 
-        // Pre-compute brick pixel position lookup tables (once, from #defines)
+        // Pre-compute brick pixel position lookup tables
         initBrickPositions();
 
         // Initialize game state for a new session
-        lives = 3;
-        game_won = 0;
+        player.lives = 3;
+        sys.game_won = 0;
         initGame();
         
-        if (num_players == 2) {
-            showPlayerStart(current_player);
+        if (sys.num_players == 2) {
+            showPlayerStart(sys.current_player);
         } else {
             drawBackground();
             drawHUD();
         }
 
-        // Inner play loop: runs until all lives are gone or game is won
-        while (lives > 0 && !game_won) {
+        // Inner play loop: runs until all player.lives are gone or game is won
+        while (player.lives > 0 && !sys.game_won) {
             // --- Input and Toggles ---
             cpct_scanKeyboard_f();
 
             // Demo mode logic: auto-launch, auto-fire, and exit detection
-            if (demo_mode) {
+            if (sys.demo_mode) {
                 // Exit demo if any of the main keys are pressed
                 if (cpct_isKeyPressed(Key_Space) || cpct_isKeyPressed(Key_Esc) || 
                     cpct_isKeyPressed(Key_CursorLeft) || cpct_isKeyPressed(Key_CursorRight)) {
-                    demo_mode = 0;
+                    sys.demo_mode = 0;
                     break;
                 }
                 
@@ -3332,10 +3430,10 @@ void main(void) {
                 
                 // Auto-fire if laser is active
                 if (powerups.laser_active) {
-                    demo_fire_timer++;
-                    if (demo_fire_timer > 30) { // Every 0.6 seconds
+                    sys.demo_fire_timer++;
+                    if (sys.demo_fire_timer > 30) { // Every 0.6 seconds
                         fireLaser();
-                        demo_fire_timer = 0;
+                        sys.demo_fire_timer = 0;
                     }
                 }
             }
@@ -3344,13 +3442,13 @@ void main(void) {
             
             // Check door exit if nextLevel didn't trigger it yet
             // (Normally nextLevel is called in updatePaddle, but we double check here)
-            if (door_open && paddle.x >= WALL_RIGHT_BYTES) {
+            if (door.open && paddle.x >= WALL_RIGHT_BYTES) {
                 nextLevel();
                 continue;
             }
 
-            // --- Update (skipped when paused) ---
-            if (!paused) {
+            // --- Update (skipped when sys.paused) ---
+            if (!sys.paused) {
                 updatePaddle();
                 updateBall();
                 updateExtraBalls();
@@ -3364,9 +3462,9 @@ void main(void) {
             drawGame();
         }
 
-        if (game_won) {
+        if (sys.game_won) {
             showVictory();
-        } else if (lives == 0) {
+        } else if (player.lives == 0) {
             // Lives reached 0, game over
             showGameOver();
         }

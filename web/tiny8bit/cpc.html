@@ -47,6 +47,33 @@
             Module['arguments'] = Module['arguments'] || [];
             Module['arguments'].push('--input', input);
         }
+
+        // Listen for keys from the parent window (via postMessage)
+        window.addEventListener('message', (event) => {
+            if (event.data && (event.data.type === 'keydown' || event.data.type === 'keyup')) {
+                const canvas = document.getElementById('canvas');
+                const target = canvas || window;
+
+                const eventData = {
+                    keyCode: event.data.keyCode,
+                    which: event.data.keyCode,
+                    code: event.data.code,
+                    key: event.data.key,
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                };
+
+                const keyEvent = new KeyboardEvent(event.data.type, eventData);
+                if (canvas) {
+                    if (canvas.getAttribute('tabindex') === null) {
+                        canvas.setAttribute('tabindex', '0');
+                    }
+                    canvas.focus();
+                }
+                target.dispatchEvent(keyEvent);
+            }
+        });
     </script>
     <script async type="text/javascript" src="cpc.js"></script>
 </body>

@@ -126,6 +126,9 @@ $(SNA_V2): $(BINFILE) tools/bin2sna.py obj/brickb.map
 # Ensure the generated file is seen by the engine's inclusion logic
 DSKINCOBJFILES += $(OBJDSKINCSDIR)/loading.scr.$(DSKINC_EXT)
 
+# Tools
+CPC_TEXT_FORMAT := python3 tools/cpc_text_format.py
+
 # Exclude files with custom rules from standard inclusion to avoid warnings
 DSKINCSRCFILES := $(filter-out dsk_files/DISC.BAS dsk_files/loading.scr,$(DSKINCSRCFILES))
 
@@ -134,10 +137,16 @@ DSKINCSRCFILES := $(filter-out dsk_files/DISC.BAS dsk_files/loading.scr,$(DSKINC
 $(OBJDSKINCSDIR)/loading.scr.$(DSKINC_EXT): dsk_files/loading.scr $(DSK)
 	@$(call ADDCODEFILETODSK,$(DSK),$<,0xC000,0x0000,$@)
 
-$(OBJDSKINCSDIR)/DISC.BAS.$(DSKINC_EXT): dsk_files/DISC.BAS $(DSK)
+# Step 1: Format DISC.BAS to CRLF/EOF
+obj/DISC.BAS: dsk_files/DISC.BAS tools/cpc_text_format.py
+	@mkdir -p obj
+	@$(CPC_TEXT_FORMAT) $< $@
+
+# Step 2: Add the formatted version to the DSK
+$(OBJDSKINCSDIR)/DISC.BAS.$(DSKINC_EXT): obj/DISC.BAS $(DSK)
 	@$(IDSK) $(DSK) -i $< -t 0 -f &> /dev/null
 	@touch $@
-	@$(call PRINT,$(DSK),"Added '$<' as BASIC")
+	@$(call PRINT,$(DSK),"Added '$<' (formatted) as BASIC")
 
 # Ensure the web DSK is only copied after all files are included
 WEB_DSK_FINAL := web/assets/disks/brickb_$(LANG_SUFFIX).dsk
