@@ -1640,19 +1640,15 @@ void updatePaddle() {
             u8 max_pot;
             
             u8 p_val = readAnalogPaddle();
-            
-            // // 3. Apply smoothing filter (4-sample moving average)
-            // sys.paddle_history[sys.paddle_history_ptr] = p_val;
-            // sys.paddle_history_ptr = (sys.paddle_history_ptr + 1) & 3;
-            
-            // sum = 0;
-            // for (i = 0; i < 4; i++) {
-            //     sum += sys.paddle_history[i];
-            // }
-            // p_val = (u8)(sum >> 2);
-            
-            // 4. Map pot value to the playfield coordinate range
+                                    
+            // TODO: calibration routine to get min/max values
+            // Now assume 0-127 range
             max_pot = 127;
+            
+            if (powerups.drunk_active) {
+                p_val = max_pot - p_val;
+            }
+            
             range = WALL_RIGHT_BYTES - WALL_LEFT_BYTES - paddle.width;
             paddle.x = WALL_LEFT_BYTES + ((u16)p_val * range) / max_pot;
             
